@@ -534,17 +534,7 @@ input:focus {
   line-height: 1;
 }
 /* Clicker dot — top-right */
-.gfx-clicker-pip {
-  position: absolute;
-  top: 10px; right: 10px;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--muted);
-  transition: background .25s, box-shadow .25s;
-}
-.gfx-clicker-pip.online { background: var(--green); box-shadow: 0 0 5px rgba(58,232,122,.6); }
-.gfx-clicker-pip.error  { background: var(--red);   box-shadow: 0 0 5px rgba(232,58,58,.6); }
-.gfx-clicker-pip.idle   { background: var(--muted); }
+
 /* ── Connection state overlays ─────────────────────────────────── */
 /* Shared base for all conn-state overlays */
 .gfx-cell.gfx-conn-offline,
@@ -1861,8 +1851,7 @@ function renderGfxGrid() {
 
     cell.innerHTML = `
       <span class="gfx-cell-num">${i + 1}</span>
-      <div class="gfx-clicker-pip ${clickerSt}" id="gfx-clicker-dot-${i}"
-           title="$(custom:EnableGFX${i+1}) — ${clickerSt === 'online' ? '1 active' : clickerSt === 'error' ? '0 inactive' : 'not set'}"></div>
+
       <div class="gfx-cell-name">${escHtml(m.name || `GFX ${i+1}`)}</div>
       ${m.role        ? `<div class="gfx-cell-role">${escHtml(m.role)}</div>` : ''}
       ${m.description ? `<div class="gfx-cell-sub">${escHtml(m.description)}</div>` : ''}
@@ -1896,13 +1885,6 @@ function updateGfxDot(i) {
     cell.classList.toggle('gfx-conn-warning',    connSt === 'warning');
     cell.classList.toggle('gfx-conn-error',      connSt === 'conn-error');
     cell.classList.toggle('gfx-conn-disabled',   connSt === 'conn-disabled');
-  }
-
-  // ── Clicker pip (top-right) ──────────────────────────────────────
-  const pip = document.getElementById(`gfx-clicker-dot-${i}`);
-  if (pip) {
-    pip.className = `gfx-clicker-pip ${clickerSt}`;
-    pip.title = `$(custom:EnableGFX${i+1}) — ${clickerSt === 'online' ? '1 active' : clickerSt === 'error' ? '0 inactive' : 'not set'}`;
   }
 
   // ── Connection dot + text (bottom footer) ────────────────────────
