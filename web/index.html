@@ -549,6 +549,12 @@ input:focus {
 .gfx-cell.gfx-conn-error,
 .gfx-cell.gfx-conn-disabled { background: var(--bg); }
 
+/* Disabled connection overrides clicker border back to grey */
+.gfx-cell.gfx-conn-disabled {
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+
 .gfx-cell.gfx-conn-offline > *:not(.gfx-conn-footer):not(.gfx-cell-num),
 .gfx-cell.gfx-conn-error   > *:not(.gfx-conn-footer):not(.gfx-cell-num),
 .gfx-cell.gfx-conn-disabled> *:not(.gfx-conn-footer):not(.gfx-cell-num) { opacity: 0.2; }
@@ -1821,9 +1827,9 @@ function renderGfxGrid() {
     const connSt    = gfxConnStatus[i]    || 'idle';
     const clickerSt = gfxClickerStatus[i] || 'idle';
     const cell = document.createElement('div');
-    const borderCls  = clickerSt === 'online' ? 'border-online'
-                     : clickerSt === 'error'  ? 'border-error'
-                     : '';
+    const borderCls  = connSt === 'conn-disabled' ? '' :
+                       clickerSt === 'online' ? 'border-online' :
+                       clickerSt === 'error'  ? 'border-error'  : '';
     const offlineCls = connSt === 'error' ? 'gfx-conn-offline' : '';
     cell.className = [
       'gfx-cell',
@@ -1864,11 +1870,14 @@ function updateGfxDot(i) {
   const m         = (config.gfx_machines || [])[i] || {};
 
   // ── Cell border — driven by clicker (EnableGFX#) ─────────────────
+  // Exception: conn-disabled suppresses the clicker border entirely.
   const cell = document.getElementById(`gfx-cell-${i}`);
   if (cell) {
     cell.classList.remove('border-online', 'border-error');
-    if (clickerSt === 'online') cell.classList.add('border-online');
-    else if (clickerSt === 'error') cell.classList.add('border-error');
+    if (connSt !== 'conn-disabled') {
+      if (clickerSt === 'online') cell.classList.add('border-online');
+      else if (clickerSt === 'error') cell.classList.add('border-error');
+    }
 
     // Connection state overlays
     cell.classList.toggle('gfx-conn-offline',    connSt === 'offline');
