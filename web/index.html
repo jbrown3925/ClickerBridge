@@ -542,7 +542,45 @@ input:focus {
 .gfx-clicker-pip.online { background: var(--green); box-shadow: 0 0 5px rgba(58,232,122,.6); }
 .gfx-clicker-pip.error  { background: var(--red);   box-shadow: 0 0 5px rgba(232,58,58,.6); }
 .gfx-clicker-pip.idle   { background: var(--muted); }
-/* Connection footer — bottom of cell */
+/* ── Connection state overlays ─────────────────────────────────── */
+/* Shared base for all conn-state overlays */
+.gfx-cell.gfx-conn-offline,
+.gfx-cell.gfx-conn-warning,
+.gfx-cell.gfx-conn-error,
+.gfx-cell.gfx-conn-disabled { background: var(--bg); }
+
+.gfx-cell.gfx-conn-offline > *:not(.gfx-conn-footer):not(.gfx-cell-num),
+.gfx-cell.gfx-conn-error   > *:not(.gfx-conn-footer):not(.gfx-cell-num),
+.gfx-cell.gfx-conn-disabled> *:not(.gfx-conn-footer):not(.gfx-cell-num) { opacity: 0.2; }
+.gfx-cell.gfx-conn-warning > *:not(.gfx-conn-footer):not(.gfx-cell-num) { opacity: 0.5; }
+
+.gfx-cell.gfx-conn-offline::after,
+.gfx-cell.gfx-conn-warning::after,
+.gfx-cell.gfx-conn-error::after,
+.gfx-cell.gfx-conn-disabled::after {
+  position: absolute;
+  inset: 0; bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  opacity: 0.75;
+  pointer-events: none;
+}
+.gfx-cell.gfx-conn-offline::after   { content: 'OFFLINE';  color: var(--red); }
+.gfx-cell.gfx-conn-warning::after   { content: 'WARNING';  color: var(--yellow); }
+.gfx-cell.gfx-conn-error::after     { content: 'ERROR';    color: var(--red); }
+.gfx-cell.gfx-conn-disabled::after  { content: 'DISABLED'; color: var(--muted); }
+
+/* Indicator dot + text colours for all connection states */
+.gfx-conn-dot.warning,   .gfx-conn-text.warning       { background: var(--yellow); color: var(--yellow); box-shadow: none; }
+.gfx-conn-dot.conn-error,.gfx-conn-text.conn-error     { background: var(--red);    color: var(--red); }
+.gfx-conn-dot.offline,   .gfx-conn-text.offline        { background: var(--red);    color: var(--red); }
+.gfx-conn-dot.conn-disabled,.gfx-conn-text.conn-disabled{ background: var(--muted); color: var(--muted); }
+.gfx-conn-dot.warning { box-shadow: 0 0 4px rgba(232,200,58,.5); }
 .gfx-conn-footer {
   position: absolute;
   bottom: 7px; left: 9px; right: 9px;
@@ -611,7 +649,31 @@ input:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.gfx-disabled { opacity: 0.35; }
+/* Machine disabled (Active toggle = off in config) */
+.gfx-disabled {
+  background: var(--bg);
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+.gfx-disabled > *:not(.gfx-conn-footer):not(.gfx-cell-num) {
+  opacity: 0.2;
+}
+.gfx-disabled::after {
+  content: 'DISABLED';
+  position: absolute;
+  inset: 0;
+  bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  opacity: 0.7;
+  pointer-events: none;
+}
 
 /* GFX config table inputs */
 .gfx-inp {
@@ -1759,15 +1821,25 @@ function renderGfxGrid() {
     const connSt    = gfxConnStatus[i]    || 'idle';
     const clickerSt = gfxClickerStatus[i] || 'idle';
     const cell = document.createElement('div');
-    const borderCls = clickerSt === 'online' ? 'border-online'
-                    : clickerSt === 'error'  ? 'border-error'
-                    : '';
-    cell.className = `gfx-cell${m.enabled === false ? ' gfx-disabled' : ''}${borderCls ? ' ' + borderCls : ''}`;
+    const borderCls  = clickerSt === 'online' ? 'border-online'
+                     : clickerSt === 'error'  ? 'border-error'
+                     : '';
+    const offlineCls = connSt === 'error' ? 'gfx-conn-offline' : '';
+    cell.className = [
+      'gfx-cell',
+      m.enabled === false ? 'gfx-disabled' : '',
+      borderCls,
+      offlineCls,
+    ].filter(Boolean).join(' ');
     cell.id = `gfx-cell-${i}`;
 
-    const connLabel = m.enableVariable
-      ? (connSt === 'online' ? 'Connected' : connSt === 'error' ? 'Offline' : '—')
-      : '—';
+    const connLabel = m.enabled === false ? 'Disabled' :
+      !m.enableVariable ? '—' :
+      connSt === 'online'        ? 'OK'       :
+      connSt === 'warning'       ? 'Warning'  :
+      connSt === 'conn-error'    ? 'Error'    :
+      connSt === 'conn-disabled' ? 'Disabled' :
+      connSt === 'offline'       ? 'Offline'  : '—';
 
     cell.innerHTML = `
       <span class="gfx-cell-num">${i + 1}</span>
@@ -1797,6 +1869,12 @@ function updateGfxDot(i) {
     cell.classList.remove('border-online', 'border-error');
     if (clickerSt === 'online') cell.classList.add('border-online');
     else if (clickerSt === 'error') cell.classList.add('border-error');
+
+    // Connection state overlays
+    cell.classList.toggle('gfx-conn-offline',    connSt === 'offline');
+    cell.classList.toggle('gfx-conn-warning',    connSt === 'warning');
+    cell.classList.toggle('gfx-conn-error',      connSt === 'conn-error');
+    cell.classList.toggle('gfx-conn-disabled',   connSt === 'conn-disabled');
   }
 
   // ── Clicker pip (top-right) ──────────────────────────────────────
@@ -1810,13 +1888,25 @@ function updateGfxDot(i) {
   const connDot = document.getElementById(`gfx-dot-${i}`);
   if (connDot) {
     connDot.className = `gfx-conn-dot ${connSt}`;
+    connDot.title = connSt;
   }
   const connText = document.getElementById(`gfx-conn-text-${i}`);
   if (connText) {
-    connText.className = `gfx-conn-text ${connSt}`;
-    connText.textContent = m.enableVariable
-      ? (connSt === 'online' ? 'Connected' : connSt === 'error' ? 'Offline' : '—')
-      : '—';
+    const connStCss = m.enabled === false ? '' :
+      connSt === 'online'        ? 'online'        :
+      connSt === 'warning'       ? 'warning'       :
+      connSt === 'conn-error'    ? 'conn-error'    :
+      connSt === 'conn-disabled' ? 'conn-disabled' :
+      connSt === 'offline'       ? 'offline'       : '';
+    connText.className = `gfx-conn-text ${connStCss}`;
+    const connLabel = m.enabled === false ? 'Disabled' :
+      !m.enableVariable ? '—' :
+      connSt === 'online'       ? 'OK'       :
+      connSt === 'warning'      ? 'Warning'  :
+      connSt === 'conn-error'   ? 'Error'    :
+      connSt === 'conn-disabled'? 'Disabled' :
+      connSt === 'offline'      ? 'Offline'  : '—';
+    connText.textContent = connLabel;
   }
 
   // ── Config table — connection dot ────────────────────────────────
@@ -1863,9 +1953,14 @@ async function pollGfxVariables() {
       try {
         const res  = await fetch(url);
         const data = await res.json();
-        const val  = (data.value || '').trim();
-        // Non-empty string = connected; empty = offline
-        gfxConnStatus[i] = val ? 'online' : 'error';
+        const val  = (data.value || '').trim().toLowerCase();
+        // Companion returns: 'ok', 'warning', 'error', 'disabled'
+        gfxConnStatus[i] =
+          val === 'ok'       ? 'online'        :
+          val === 'warning'  ? 'warning'       :
+          val === 'error'    ? 'conn-error'    :
+          val === 'disabled' ? 'conn-disabled' :
+          val               ? 'online'         : 'offline';
       } catch {
         gfxConnStatus[i] = 'error';
       }
