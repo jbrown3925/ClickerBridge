@@ -1,39 +1,26 @@
 # PerfectCue Bridge
 
-Translates DSAN PerfectCue USB HID button presses into Bitfocus Companion OSC
-commands. Runs headless inside an Ubuntu 24.04 VM on UTM (macOS), managed by
-systemd, with a browser-based web UI for configuration, key learning, and
-live activity monitoring.
+Translates DSAN PerfectCue USB HID button presses into Bitfocus Companion
+OSC commands using the current `/location/` API. Runs headless inside an
+Ubuntu 24.04 VM on UTM (macOS), managed by systemd, with a web UI for
+configuration and key learning.
 
 ```
 PerfectCue Receiver  (USB HID keyboard)
         │
-  UTM USB Passthrough  (QEMU backend)
+  UTM USB Passthrough  (QEMU backend required)
         │
   Ubuntu 24.04 VM
   ├── perfectcue_bridge.py   evdev → /location/ OSC
-  ├── web_server.py          config UI + REST API  :8080
+  ├── web_server.py          config UI on :8080
   └── systemd                auto-start on boot
         │
-        │  UDP  /location/<page>/<row>/<col>/press
+        │  UDP OSC  /location/<page>/<row>/<col>/press
         ▼
-Bitfocus Companion  (macOS host or LAN)
+Bitfocus Companion  (macOS host or LAN machine)
 ```
 
-## Features
-
-- **Zero-config HID reading** — bridge reads the PerfectCue as a standard
-  USB keyboard via `evdev`; no custom drivers
-- **Current Companion OSC API** — uses `/location/<page>/<row>/<col>/<action>`
-  (press, down, up, rotate-left, rotate-right)
-- **Web UI** — config editor, live keypress stream, manual OSC test fire,
-  per-mapping test buttons, service start/stop/restart
-- **Single-shot Learn mode** — press a clicker button once to capture its key
-  code; bridge keeps running and firing OSC throughout
-- **Re-learn per row** — update any mapping's key code from the Mappings table
-  without touching other settings
-- **Auto-save** — saving from the web UI writes `config.json` directly to the
-  VM and restarts the bridge service automatically
+---
 
 ## Requirements
 
@@ -44,52 +31,59 @@ Bitfocus Companion  (macOS host or LAN)
 | Guest OS | Ubuntu Server 24.04 LTS |
 | Companion | Bitfocus Companion with OSC listener enabled |
 
-> **USB passthrough note:** UTM's USB sharing only works with the QEMU backend.
-> If your VM was created with Apple Virtualization, USB passthrough is not
-> available. Create a new VM using the Emulate/Virtualize → Linux path.
+---
 
-## Quick Start
+## Install
 
-### 1. Clone
+Copy this folder into the Ubuntu VM, then:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/perfectcue-bridge.git
-```
-
-### 2. Copy to VM
-
-```bash
-scp -r perfectcue-bridge/ user@<vm-ip>:~/
-```
-
-### 3. Install
-
-```bash
-cd ~/perfectcue-bridge
 sudo bash install.sh
 ```
 
-### 4. Attach PerfectCue
+The installer creates a `bridge` service user, sets up a Python venv with
+`evdev` and `python-osc`, writes a udev rule, and registers two systemd
+services that start on boot.
+
+---
+
+## After Install
+
+### 1. Attach the PerfectCue
 
 In the UTM toolbar, click the USB icon and select the PerfectCue receiver.
-Then start the bridge:
+The bridge service starts automatically when the device is detected.
 
 ```bash
 sudo systemctl start perfectcue-bridge
+sudo journalctl -fu perfectcue-bridge
 ```
 
-### 5. Open Web UI
+### 2. Open the Web UI
 
 ```
 http://<vm-ip>:8080
 ```
 
-Set `companion_ip` to your Mac's host-only adapter IP
-(`ifconfig bridge100 | grep inet` on the Mac).
+Find the VM IP with `ip addr show` inside the VM.
+
+### 3. Configure Companion target
+
+In the **Config** tab, set `companion_ip` to your Mac's IP on the UTM
+host-only network (check with `ifconfig bridge100` on the Mac).
+Click **Save** — the config is written to disk and the bridge restarts
+automatically.
+
+### 4. Map your buttons
+
+Use the **Learn** tab to detect which key code each PerfectCue button sends,
+then assign it to a Companion page / row / column.
+
+---
 
 ## OSC API
 
-The bridge uses Companion's current `/location/` API — no arguments:
+The bridge uses Companion's current `/location/` API (no arguments):
 
 ```
 /location/<page>/<row>/<column>/press        press and release
@@ -102,22 +96,23 @@ The bridge uses Companion's current `/location/` API — no arguments:
 Row and column are **0-based**. On a standard 8×4 Companion grid:
 columns 0–7, rows 0–3.
 
-## File Layout
+---
+
+## File Layout (installed)
 
 ```
-perfectcue-bridge/
+/opt/perfectcue-bridge/
 ├── perfectcue_bridge.py   bridge process (evdev → OSC)
-├── web_server.py          HTTP server (config UI + /osc + /service API)
-├── install.sh             one-command installer
-├── config.json            default settings (empty mappings)
-├── web/
-│   └── index.html         single-file web UI
-└── docs/
-    ├── INSTALL.md         full install guide (UTM + Ubuntu setup)
-    └── UTM_SETUP.md       UTM VM configuration reference
+├── web_server.py          HTTP server for web UI
+├── config.json            settings and key mappings
+├── status.json            runtime state (auto-written by bridge)
+├── bridge.log             rolling log
+├── venv/                  Python virtual environment
+└── web/
+    └── index.html         single-file web UI
 ```
 
-After install, files live at `/opt/perfectcue-bridge/`.
+---
 
 ## Service Commands
 
@@ -126,59 +121,38 @@ After install, files live at `/opt/perfectcue-bridge/`.
 sudo systemctl status perfectcue-bridge
 sudo systemctl status perfectcue-web
 
-# Live log
+# Logs
 sudo journalctl -fu perfectcue-bridge
+sudo journalctl -fu perfectcue-web
+
+# Restart after manual config edit
+sudo systemctl restart perfectcue-bridge
 
 # List detected input devices
 sudo /opt/perfectcue-bridge/venv/bin/python3 \
   /opt/perfectcue-bridge/perfectcue_bridge.py --list-devices
-
-# Restart after manual config edit
-sudo systemctl restart perfectcue-bridge
 ```
 
-## Web API
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/config.json` | Read current config |
-| `POST` | `/config.json` | Write config, restart bridge |
-| `GET` | `/status.json` | Bridge runtime state |
-| `GET` | `/bridge.log` | Last 300 log lines |
-| `POST` | `/osc` | Send test OSC to Companion |
-| `POST` | `/service` | `{"cmd":"start"\|"stop"\|"restart"}` |
+---
 
 ## Troubleshooting
 
 **USB device not detected in VM**
-- Confirm UTM VM uses QEMU backend (not Apple Virtualization)
-- Attach via UTM toolbar USB icon after VM is running
-- Confirm with `lsusb` inside VM
+- Confirm UTM VM uses the QEMU backend (Apple Virtualization does not support USB passthrough)
+- Attach device via UTM toolbar USB icon after the VM is running
+- Run `lsusb` inside the VM to confirm it appears
 
 **Bridge grabs keyboard, VM console stops responding**
-- Expected — `device.grab()` gives bridge exclusive access
-- Use SSH instead: `ssh user@<vm-ip>`
-- Stop temporarily: `sudo systemctl stop perfectcue-bridge`
+- This is expected — `device.grab()` gives the bridge exclusive access
+- Use SSH to manage the VM: `ssh user@<vm-ip>`
+- Stop the bridge temporarily: `sudo systemctl stop perfectcue-bridge`
 
 **OSC not reaching Companion**
-- Set `companion_ip` to Mac's UTM host-only IP, not `127.0.0.1`
-- Find it: `ifconfig bridge100 | grep inet`
-- Confirm Companion OSC: Settings → Remote Control → OSC → port 12321
+- Set `companion_ip` to the Mac's host-only adapter IP (not `127.0.0.1`)
+- Find it on the Mac: `ifconfig bridge100 | grep inet`
+- Confirm Companion OSC listener is enabled: Settings → Remote Control → OSC → port 12321
 
-**Service control buttons fail**
-- Ensure sudoers rule was written by installer:
-  `cat /etc/sudoers.d/perfectcue-bridge`
-- Re-apply: `sudo bash install.sh`
-
-## Clock skew on fresh VM
-
-If `apt update` fails with "Release file is not valid yet":
-
-```bash
-sudo timedatectl set-ntp true
-sudo systemctl restart systemd-timesyncd
-```
-
-## License
-
-MIT
+**Web UI save not persisting**
+- Verify `perfectcue-web` service is running
+- Check the toast message — it should say "Config saved" not trigger a download
+- Try `curl -X POST http://localhost:8080/config.json -d @config.json` from inside the VM

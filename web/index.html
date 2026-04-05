@@ -307,86 +307,124 @@ input:focus {
 }
 
 /* ─── Learn mode panel ───────────────────────────────── */
-#learn-panel {
+/* ─── Compact learn bar ──────────────────────────────── */
+.learn-bar {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
-}
-.learn-header {
-  padding: 16px 22px;
-  background: rgba(232,100,58,.06);
-  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-}
-.learn-header h3 {
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.learn-body {
-  padding: 28px 22px;
-  text-align: center;
-}
-.learn-waiting {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 16px;
+  transition: border-color .3s, box-shadow .3s;
 }
-.learn-key-display {
-  width: 140px; height: 140px;
+.learn-bar.listening {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 20px rgba(232,100,58,.15);
+}
+.learn-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+.learn-bar-display {
+  flex-shrink: 0;
+  width: 64px; height: 64px;
   border-radius: 50%;
   border: 2px solid var(--border-hi);
   background: var(--bg);
   display: flex; align-items: center; justify-content: center;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   transition: border-color .3s, box-shadow .3s, background .3s;
-  margin: 0 auto;
 }
-.learn-key-display.flash {
+.learn-bar-display.flash {
   border-color: var(--accent);
-  background: rgba(232,100,58,.08);
-  box-shadow: 0 0 40px rgba(232,100,58,.3);
+  background: rgba(232,100,58,.1);
+  box-shadow: 0 0 20px rgba(232,100,58,.4);
 }
-.learn-key-name {
+.learn-bar-name {
   font-family: var(--mono);
-  font-size: 1rem;
+  font-size: 0.78rem;
   font-weight: 500;
   color: var(--accent);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
-.learn-key-code {
+.learn-bar-code {
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: 0.58rem;
   color: var(--muted);
+}
+.learn-bar-info {
+  min-width: 0;
+}
+.learn-bar-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  margin-bottom: 2px;
 }
 .learn-instructions {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--muted);
-  max-width: 320px;
-  line-height: 1.6;
+  line-height: 1.5;
 }
+.learn-bar-right {
+  flex-shrink: 0;
+}
+
+/* ─── Learn assign form (slides in below bar) ────────── */
 .learn-assign-form {
   display: none;
-  margin-top: 20px;
-  gap: 12px;
-  flex-direction: column;
-  align-items: stretch;
-  max-width: 340px;
-  margin-left: auto;
-  margin-right: auto;
+  margin-top: 8px;
 }
-.learn-assign-form.visible { display: flex; }
-.learn-assign-row {
-  display: grid;
-  grid-template-columns: 1fr 60px 60px;
+.learn-assign-form.visible { display: block; }
+.learn-assign-inner {
+  background: rgba(232,100,58,.05);
+  border: 1px solid rgba(232,100,58,.2);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
+.learn-assign-key {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 4px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+}
+.learn-assign-inner input,
+.learn-assign-inner select {
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 6px 8px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.learn-assign-inner input:focus,
+.learn-assign-inner select:focus {
+  border-color: var(--accent2);
+}
+.learn-assign-inner input[type="text"]   { flex: 1; min-width: 100px; }
+.learn-assign-inner input[type="number"] { width: 56px; }
+.learn-assign-inner select               { min-width: 90px; }
+
+
 
 /* ─── Log viewer ─────────────────────────────────────── */
 #log-output {
@@ -624,7 +662,6 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
   <nav class="tabs">
     <button class="tab-btn active" data-tab="config">Config</button>
     <button class="tab-btn" data-tab="mappings">Mappings</button>
-    <button class="tab-btn" data-tab="learn">Learn</button>
     <button class="tab-btn" data-tab="log">Activity</button>
     <button class="tab-btn" data-tab="reference">Reference</button>
   </nav>
@@ -694,13 +731,52 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
     </div>
   </div>
 
-  <!-- ══ TAB: MAPPINGS ═══════════════════════════════════════════════ -->
+  <!-- ══ TAB: MAPPINGS + LEARN (merged) ══════════════════════════════ -->
   <div class="tab-panel" id="tab-mappings">
-    <div class="flex-gap" style="margin-bottom:18px; justify-content: space-between;">
+
+    <!-- ── Compact Learn Bar ────────────────────────────────────────── -->
+    <div class="learn-bar" id="learn-bar">
+      <div class="learn-bar-left">
+        <div class="learn-bar-display" id="key-display">
+          <span class="learn-bar-name" id="key-name">—</span>
+          <span class="learn-bar-code" id="key-code">waiting</span>
+        </div>
+        <div class="learn-bar-info">
+          <p class="learn-bar-title">Key Learn</p>
+          <p class="learn-instructions" id="learn-instr">Press <strong>Start</strong> then click one button on the PerfectCue.</p>
+        </div>
+      </div>
+      <div class="learn-bar-right">
+        <button class="btn btn-secondary" id="learn-toggle" onclick="toggleLearn()" style="white-space:nowrap;">▶ Start</button>
+      </div>
+    </div>
+
+    <!-- ── Learn assign form — slides in below bar when key detected ── -->
+    <div class="learn-assign-form" id="learn-assign">
+      <div class="learn-assign-inner">
+        <span class="learn-assign-key" id="learn-assign-key"></span>
+        <input type="text"   id="la-label"  placeholder="Label">
+        <input type="number" id="la-page"   placeholder="Page" value="1" min="1">
+        <input type="number" id="la-row"    placeholder="Row"  value="0" min="0">
+        <input type="number" id="la-column" placeholder="Col"  value="0" min="0">
+        <select id="la-action">
+          <option value="press">press</option>
+          <option value="down">down</option>
+          <option value="up">up</option>
+          <option value="rotate-left">rotate-left</option>
+          <option value="rotate-right">rotate-right</option>
+        </select>
+        <button class="btn btn-primary" onclick="assignLearnedKey()">Assign</button>
+        <button class="btn btn-secondary" onclick="skipLearnedKey()">Skip</button>
+      </div>
+    </div>
+
+    <!-- ── Mappings table ────────────────────────────────────────────── -->
+    <div class="flex-gap" style="margin:16px 0 10px; justify-content:space-between;">
       <p class="section-title" style="margin-bottom:0; flex:1;">Key → Button Mappings</p>
       <div class="flex-gap">
         <button class="btn btn-secondary" onclick="addMapping()">+ Add Row</button>
-        <button class="btn btn-primary" onclick="saveMappings()">Save Mappings</button>
+        <button class="btn btn-primary" onclick="saveMappings()">Save</button>
       </div>
     </div>
 
@@ -724,68 +800,6 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
       </table>
     </div>
 
-    <p class="text-muted" style="margin-top:12px;">
-      Not sure which key code your clicker sends? Use the <strong>Learn</strong> tab to detect them.
-    </p>
-  </div>
-
-  <!-- ══ TAB: LEARN ══════════════════════════════════════════════════ -->
-  <div class="tab-panel" id="tab-learn">
-    <div id="learn-panel">
-      <div class="learn-header">
-        <h3>Key Detection</h3>
-        <div class="flex-gap">
-          <button class="btn btn-secondary btn-icon" id="learn-toggle" onclick="toggleLearn()">▶ Start Listening</button>
-        </div>
-      </div>
-      <div class="learn-body">
-        <div class="learn-waiting">
-          <div class="learn-key-display" id="key-display">
-            <span class="learn-key-name" id="key-name">—</span>
-            <span class="learn-key-code" id="key-code">waiting</span>
-          </div>
-          <p class="learn-instructions" id="learn-instr">
-            Click <strong>Start Listening</strong>, then press a button on the PerfectCue to detect its key code.
-          </p>
-
-          <div class="learn-assign-form" id="learn-assign">
-            <p class="text-muted" style="text-align:left; font-size:0.8rem;">Assign detected key to a Companion button:</p>
-            <div class="learn-assign-row">
-              <input type="text"   id="la-label"  placeholder="Label (e.g. Forward)">
-              <input type="number" id="la-page"   placeholder="Page"   value="1" min="1" style="width:60px">
-              <input type="number" id="la-row"    placeholder="Row"    value="0" min="0" style="width:60px">
-              <input type="number" id="la-column" placeholder="Col"    value="0" min="0" style="width:60px">
-            </div>
-            <div>
-              <select id="la-action" style="width:100%;background:var(--bg);border:1px solid var(--border-hi);color:var(--text);border-radius:var(--radius);padding:7px 10px;font-family:var(--mono);font-size:0.82rem;">
-                <option value="press">press (down + up)</option>
-                <option value="down">down (hold)</option>
-                <option value="up">up (release)</option>
-                <option value="rotate-left">rotate-left</option>
-                <option value="rotate-right">rotate-right</option>
-              </select>
-            </div>
-            <div class="flex-gap">
-              <button class="btn btn-primary" onclick="assignLearnedKey()">Assign Key</button>
-              <button class="btn btn-secondary" onclick="skipLearnedKey()">Skip</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div style="margin-top:20px;">
-      <p class="section-title">How Learn Mode Works</p>
-      <div class="card">
-        <ol style="padding-left:20px; line-height:2; font-size:0.83rem; color:var(--text);">
-          <li>Click <strong>Start Listening</strong>. The bridge keeps running normally — OSC still fires.</li>
-          <li>Press <strong>one button</strong> on the clicker. Listening stops automatically after the first press.</li>
-          <li>Enter a label, Companion page, row, column, and action, then click <strong>Assign Key</strong>.</li>
-          <li>The mapping is saved immediately. Click Start Listening again for the next button.</li>
-          <li>To update an existing key code, use the <strong>⟳ Re-learn</strong> button in the Mappings tab.</li>
-        </ol>
-      </div>
-    </div>
   </div>
 
   <!-- ══ TAB: LOG / ACTIVITY ═════════════════════════════════════════ -->
@@ -1181,22 +1195,22 @@ function toggleLearn() {
 function _applyLearnState() {
   const btn     = document.getElementById('learn-toggle');
   const instr   = document.getElementById('learn-instr');
+  const bar     = document.getElementById('learn-bar');
   const display = document.getElementById('key-display');
 
   if (learnActive) {
-    btn.textContent = '■ Stop Listening';
+    btn.textContent = '■ Stop';
     btn.style.color = 'var(--red)';
-    instr.textContent = 'Listening… press ONE button on the PerfectCue.';
-    display.style.borderColor = 'var(--accent)';
+    bar.classList.add('listening');
+    instr.innerHTML = 'Listening&hellip; press <strong>one</strong> button on the PerfectCue.';
     document.getElementById('key-name').textContent = '…';
     document.getElementById('key-code').textContent = 'listening';
   } else {
-    btn.textContent = '▶ Start Listening';
+    btn.textContent = '▶ Start';
     btn.style.color = '';
-    display.style.borderColor = '';
+    bar.classList.remove('listening');
     if (!learnedKey) {
-      // Only reset instructions if nothing was caught
-      instr.textContent = 'Click Start Listening, then press a button on the PerfectCue to detect its key code.';
+      instr.innerHTML = 'Press <strong>Start</strong> then click one button on the PerfectCue.';
       document.getElementById('key-name').textContent = '—';
       document.getElementById('key-code').textContent = 'waiting';
     }
@@ -1239,10 +1253,12 @@ function flashKey(keyName) {
   display.classList.add('flash');
   setTimeout(() => display.classList.remove('flash'), 600);
 
+  // Populate and show assign form inline below the bar
+  document.getElementById('learn-assign-key').textContent = keyName;
   document.getElementById('learn-assign').classList.add('visible');
   document.getElementById('la-label').focus();
   document.getElementById('learn-instr').textContent =
-    `Key detected: ${keyName} — fill in the assignment below, then click Assign.`;
+    `Detected: ${keyName} — fill in the assignment below.`;
 
   logEvent(`[LEARN] Detected: ${keyName}`);
 }
@@ -1267,20 +1283,22 @@ function assignLearnedKey() {
   // Reset form ready for next use
   learnedKey = null;
   document.getElementById('learn-assign').classList.remove('visible');
+  document.getElementById('learn-assign-key').textContent = '';
   document.getElementById('la-label').value = '';
   document.getElementById('key-name').textContent = '—';
   document.getElementById('key-code').textContent = 'waiting';
-  document.getElementById('learn-instr').textContent =
-    'Click Start Listening, then press a button on the PerfectCue to detect its key code.';
+  document.getElementById('learn-instr').innerHTML =
+    'Press <strong>Start</strong> then click one button on the PerfectCue.';
 }
 
 function skipLearnedKey() {
   learnedKey = null;
   document.getElementById('learn-assign').classList.remove('visible');
+  document.getElementById('learn-assign-key').textContent = '';
   document.getElementById('key-name').textContent = '—';
   document.getElementById('key-code').textContent = 'waiting';
-  document.getElementById('learn-instr').textContent =
-    'Click Start Listening, then press a button on the PerfectCue to detect its key code.';
+  document.getElementById('learn-instr').innerHTML =
+    'Press <strong>Start</strong> then click one button on the PerfectCue.';
 }
 
 // ── Re-learn from Mappings tab ──────────────────────────────────────────
@@ -1288,16 +1306,13 @@ function relearnRow(btn) {
   const tr   = btn.closest('tr');
   const chip = tr.querySelector('.key-chip');
 
-  // Store the target chip so _learnGotKey knows where to write
   relearnTargetChip = chip;
-
-  // Activate learn mode (single-shot)
   learnActive = true;
-  lastLearnKey = chip.dataset.key; // ignore the current key if it fires again
+  lastLearnKey = chip.dataset.key;
   _applyLearnState();
 
-  // Switch to Learn tab and tell the user what's happening
-  document.querySelector('[data-tab="learn"]').click();
+  // Switch to Mappings tab (already there) and update bar instruction
+  document.querySelector('[data-tab="mappings"]').click();
   document.getElementById('learn-instr').textContent =
     `Re-learning "${chip.dataset.key}" — press the new clicker button now.`;
   document.getElementById('key-name').textContent = '…';
