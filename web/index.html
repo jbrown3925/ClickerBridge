@@ -503,17 +503,25 @@ input:focus {
 }
 .gfx-cell {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 12px 12px;
+  padding: 10px 10px 28px;     /* bottom pad leaves room for conn footer */
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
   position: relative;
-  transition: border-color .2s, box-shadow .2s;
-  min-height: 90px;
+  transition: border-color .25s, box-shadow .25s;
+  min-height: 96px;
 }
-.gfx-cell:hover { border-color: var(--border-hi); }
+/* Clicker-driven border — green = active (1), red = inactive (0) */
+.gfx-cell.border-online {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px rgba(58,232,122,.25), inset 0 0 20px rgba(58,232,122,.04);
+}
+.gfx-cell.border-error {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px rgba(232,58,58,.25), inset 0 0 20px rgba(232,58,58,.04);
+}
 .gfx-cell-num {
   position: absolute;
   top: 6px; left: 9px;
@@ -522,17 +530,57 @@ input:focus {
   color: var(--muted);
   line-height: 1;
 }
+/* Clicker dot — top-right */
+.gfx-clicker-pip {
+  position: absolute;
+  top: 8px; right: 9px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: background .25s, box-shadow .25s;
+}
+.gfx-clicker-pip.online { background: var(--green); box-shadow: 0 0 5px rgba(58,232,122,.6); }
+.gfx-clicker-pip.error  { background: var(--red);   box-shadow: 0 0 5px rgba(232,58,58,.6); }
+.gfx-clicker-pip.idle   { background: var(--muted); }
+/* Connection footer — bottom of cell */
+.gfx-conn-footer {
+  position: absolute;
+  bottom: 7px; left: 9px; right: 9px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+}
+.gfx-conn-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--muted);
+  transition: background .3s, box-shadow .3s;
+}
+.gfx-conn-dot.online { background: var(--green); box-shadow: 0 0 4px rgba(58,232,122,.5); }
+.gfx-conn-dot.error  { background: var(--red);   box-shadow: 0 0 4px rgba(232,58,58,.5); }
+.gfx-conn-text {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1;
+}
+.gfx-conn-text.online { color: var(--green); }
+.gfx-conn-text.error  { color: var(--red); }
 .gfx-cell-indicator {
   width: 10px; height: 10px;
   border-radius: 50%;
   background: var(--muted);
   flex-shrink: 0;
-  align-self: flex-end;
   transition: background .3s, box-shadow .3s;
 }
 .gfx-cell-indicator.online  { background: var(--green); box-shadow: 0 0 6px rgba(58,232,122,.5); }
 .gfx-cell-indicator.error   { background: var(--red);   box-shadow: 0 0 6px rgba(232,58,58,.5); }
-.gfx-cell-indicator.idle    { background: var(--yellow); }
+.gfx-cell-indicator.idle    { background: var(--muted); }
 .gfx-cell-name {
   font-size: 0.8rem;
   font-weight: 700;
@@ -1708,23 +1756,31 @@ function renderGfxGrid() {
   const grid = document.getElementById('gfx-grid');
   grid.innerHTML = '';
   config.gfx_machines.forEach((m, i) => {
-    const st  = gfxStatus[i] || 'idle';
-    const cell = document.createElement('div');
-    cell.className = 'gfx-cell' + (m.enabled === false ? ' gfx-disabled' : '');
-    cell.id = `gfx-cell-${i}`;
+    const connSt    = gfxConnStatus[i]    || 'idle';
     const clickerSt = gfxClickerStatus[i] || 'idle';
+    const cell = document.createElement('div');
+    const borderCls = clickerSt === 'online' ? 'border-online'
+                    : clickerSt === 'error'  ? 'border-error'
+                    : '';
+    cell.className = `gfx-cell${m.enabled === false ? ' gfx-disabled' : ''}${borderCls ? ' ' + borderCls : ''}`;
+    cell.id = `gfx-cell-${i}`;
+
+    const connLabel = m.enableVariable
+      ? (connSt === 'online' ? 'Connected' : connSt === 'error' ? 'Offline' : '—')
+      : '—';
+
     cell.innerHTML = `
       <span class="gfx-cell-num">${i + 1}</span>
-      <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;">
-        <div class="gfx-cell-indicator ${clickerSt}" id="gfx-clicker-dot-${i}"
-             title="$(custom:EnableGFX${i+1}) — clicker active"
-             style="width:7px;height:7px;" ></div>
-        <div class="gfx-cell-indicator ${st}" id="gfx-dot-${i}" title="${st}"></div>
-      </div>
+      <div class="gfx-clicker-pip ${clickerSt}" id="gfx-clicker-dot-${i}"
+           title="$(custom:EnableGFX${i+1}) — ${clickerSt === 'online' ? '1 active' : clickerSt === 'error' ? '0 inactive' : 'not set'}"></div>
       <div class="gfx-cell-name">${escHtml(m.name || `GFX ${i+1}`)}</div>
       ${m.role        ? `<div class="gfx-cell-role">${escHtml(m.role)}</div>` : ''}
       ${m.description ? `<div class="gfx-cell-sub">${escHtml(m.description)}</div>` : ''}
-      ${m.enableVariable ? `<div class="gfx-cell-osc" title="$(internal:connection_${m.enableVariable.replace(/'/g,'').replace(/"/g,'')}_status)">${escHtml(m.enableVariable)}</div>` : ''}
+      <div class="gfx-conn-footer"
+           title="${m.enableVariable ? `$(internal:connection_${(m.enableVariable||'').replace(/'/g,'')}_status)` : 'No variable configured'}">
+        <div class="gfx-conn-dot ${connSt}" id="gfx-dot-${i}"></div>
+        <span class="gfx-conn-text ${connSt}" id="gfx-conn-text-${i}">${escHtml(connLabel)}</span>
+      </div>
     `;
     grid.appendChild(cell);
   });
@@ -1735,21 +1791,35 @@ function updateGfxDot(i) {
   const clickerSt = gfxClickerStatus[i] || 'idle';
   const m         = (config.gfx_machines || [])[i] || {};
 
-  // ── Connection dot (status grid) ──────────────────────────────────
-  const dot = document.getElementById(`gfx-dot-${i}`);
-  if (dot) {
-    dot.className = `gfx-cell-indicator ${connSt}`;
-    dot.title = connSt;
+  // ── Cell border — driven by clicker (EnableGFX#) ─────────────────
+  const cell = document.getElementById(`gfx-cell-${i}`);
+  if (cell) {
+    cell.classList.remove('border-online', 'border-error');
+    if (clickerSt === 'online') cell.classList.add('border-online');
+    else if (clickerSt === 'error') cell.classList.add('border-error');
   }
 
-  // ── Clicker dot (status grid) ─────────────────────────────────────
-  const cDot = document.getElementById(`gfx-clicker-dot-${i}`);
-  if (cDot) {
-    cDot.className = `gfx-cell-indicator ${clickerSt}`;
-    cDot.title = `$(custom:EnableGFX${i+1}) = ${clickerSt === 'online' ? '1 (active)' : clickerSt === 'error' ? '0 (inactive)' : 'not set'}`;
+  // ── Clicker pip (top-right) ──────────────────────────────────────
+  const pip = document.getElementById(`gfx-clicker-dot-${i}`);
+  if (pip) {
+    pip.className = `gfx-clicker-pip ${clickerSt}`;
+    pip.title = `$(custom:EnableGFX${i+1}) — ${clickerSt === 'online' ? '1 active' : clickerSt === 'error' ? '0 inactive' : 'not set'}`;
   }
 
-  // ── Connection dot (config table) ────────────────────────────────
+  // ── Connection dot + text (bottom footer) ────────────────────────
+  const connDot = document.getElementById(`gfx-dot-${i}`);
+  if (connDot) {
+    connDot.className = `gfx-conn-dot ${connSt}`;
+  }
+  const connText = document.getElementById(`gfx-conn-text-${i}`);
+  if (connText) {
+    connText.className = `gfx-conn-text ${connSt}`;
+    connText.textContent = m.enableVariable
+      ? (connSt === 'online' ? 'Connected' : connSt === 'error' ? 'Offline' : '—')
+      : '—';
+  }
+
+  // ── Config table — connection dot ────────────────────────────────
   const cfgDot = document.getElementById(`gfx-cfg-dot-${i}`);
   if (cfgDot) {
     cfgDot.className = `gfx-cell-indicator ${connSt}`;
@@ -1759,7 +1829,7 @@ function updateGfxDot(i) {
     cfgDot.title   = fullVar ? `${fullVar}\n— ${desc}` : 'No variable configured';
   }
 
-  // ── Clicker dot (config table) ────────────────────────────────────
+  // ── Config table — clicker dot ───────────────────────────────────
   const cfgCDot = document.getElementById(`gfx-cfg-clicker-${i}`);
   if (cfgCDot) {
     cfgCDot.className = `gfx-cell-indicator ${clickerSt}`;
