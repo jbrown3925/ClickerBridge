@@ -1585,6 +1585,7 @@ function renderGfxGrid() {
 
 let lastStatusKey = null;
 let lastStatusOsc = null;
+let lastStatusSeq = -1;   // seq counter — detects same-key rapid presses
 
 const POLL_RATE_NORMAL = 600;   // ms — background tabs
 const POLL_RATE_STATUS = 150;   // ms — Status tab active (catches fast presses)
@@ -1620,7 +1621,9 @@ function pollStatus() {
       label.textContent = s.state || 'unknown';
 
       // New key event — drives keypress stream, learn detection, and status arrows
-      if (s.last_key && s.last_key !== lastStatusKey) {
+      const seq = s.seq ?? -1;
+      if (s.last_key && seq !== lastStatusSeq) {
+        lastStatusSeq = seq;
         lastStatusKey = s.last_key;
         lastStatusOsc = s.last_osc || '';
         appendKeypress(s.last_key, s.last_osc || '');
@@ -1665,6 +1668,7 @@ function clearKeypress() {
   const out = document.getElementById('keypress-output');
   out.innerHTML = '<span style="color:var(--muted);">Cleared — waiting for key events...</span>';
   lastStatusKey = null;
+  lastStatusSeq = -1;
   document.getElementById('log-last-key').textContent = 'last key: —';
 }
 

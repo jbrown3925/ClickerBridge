@@ -261,13 +261,18 @@ def learn_mode(device: InputDevice, config_path: Path, config: dict):
 # ---------------------------------------------------------------------------
 
 STATUS_FILE = Path(__file__).parent / "status.json"
+_status_seq = 0   # monotonic counter — increments on every keypress
 
 def write_status(state: str, last_key: str = "", last_osc: str = "", error: str = ""):
+    global _status_seq
+    if last_key:          # only increment on real key events
+        _status_seq += 1
     status = {
-        "state": state,
+        "state":    state,
         "last_key": last_key,
         "last_osc": last_osc,
-        "error": error,
+        "error":    error,
+        "seq":      _status_seq,
         "timestamp": time.time()
     }
     try:
