@@ -505,14 +505,13 @@ input:focus {
   background: var(--surface);
   border: 2px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px 14px 52px;
+  padding: 10px 14px 42px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   gap: 6px;
   position: relative;
   transition: border-color .25s, box-shadow .25s;
-  min-height: 220px;
+  min-height: 176px;
   overflow: hidden;
   container-type: inline-size;
 }
@@ -589,7 +588,7 @@ input:focus {
   overflow: hidden;
 }
 .gfx-conn-dot {
-  width: 18px; height: 18px;
+  width: 14px; height: 14px;
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--muted);
@@ -599,7 +598,7 @@ input:focus {
 .gfx-conn-dot.error  { background: var(--red);   box-shadow: 0 0 4px rgba(232,58,58,.5); }
 .gfx-conn-text {
   font-family: var(--mono);
-  font-size: clamp(1.2rem, 12cqi, 1.56rem);
+  font-size: clamp(0.96rem, 9.6cqi, 1.25rem);
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -627,7 +626,7 @@ input:focus {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: clamp(2rem, 28cqi, 3.4rem);
+  font-size: clamp(1.6rem, 22.4cqi, 2.72rem);
 }
 .gfx-cell-role {
   font-weight: 700;
@@ -637,7 +636,7 @@ input:focus {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: clamp(1.3rem, 16cqi, 2rem);
+  font-size: clamp(1.04rem, 12.8cqi, 1.6rem);
 }
 .gfx-cell-sub {
   font-family: var(--mono);
