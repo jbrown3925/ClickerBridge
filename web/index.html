@@ -976,6 +976,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
             <th>Role</th>
             <th>Description</th>
             <th>Enable Variable</th>
+            <th style="width:52px; text-align:center;">Status</th>
             <th style="width:52px; text-align:center;">Active</th>
           </tr>
         </thead>
@@ -1653,12 +1654,24 @@ function renderGfxGrid() {
 }
 
 function updateGfxDot(i, status) {
+  // Update status grid dot
   const dot = document.getElementById(`gfx-dot-${i}`);
   if (dot) {
     dot.className = `gfx-cell-indicator ${status}`;
     dot.title = status;
   }
   gfxStatus[i] = status;
+
+  // Update config table dot + tooltip
+  const cfgDot = document.getElementById(`gfx-cfg-dot-${i}`);
+  if (cfgDot) {
+    cfgDot.className = `gfx-cell-indicator ${status}`;
+    const m        = (config.gfx_machines || [])[i] || {};
+    const varLabel = (m.enableVariable || '').trim().replace(/'/g, '').replace(/"/g, '');
+    const fullVar  = varLabel ? `$(internal:connection_${varLabel}_status)` : '';
+    const desc     = status === 'online' ? '1 (enabled)' : status === 'error' ? '0 (disabled)' : 'not polled';
+    cfgDot.title   = fullVar ? `${fullVar}\n— ${desc}` : 'No variable configured';
+  }
 }
 
 /** Poll Companion variable for each enabled GFX machine every 2 seconds */
@@ -1704,12 +1717,22 @@ function renderGfxConfigForm() {
   tbody.innerHTML = '';
   config.gfx_machines.forEach((m, i) => {
     const tr = document.createElement('tr');
+    const varLabel   = (m.enableVariable || '').trim().replace(/'/g, '').replace(/"/g, '');
+    const fullVar    = varLabel ? `$(internal:connection_${varLabel}_status)` : '';
+    const st         = gfxStatus[i] || 'idle';
+    const dotTitle   = fullVar
+      ? `${fullVar}\n— ${st === 'online' ? '1 (enabled)' : st === 'error' ? '0 (disabled)' : 'not polled'}`
+      : 'No variable configured';
     tr.innerHTML = `
       <td style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);padding:8px 10px;white-space:nowrap;">GFX ${i+1}</td>
       <td style="padding:4px 6px;"><input class="gfx-inp" type="text" data-idx="${i}" data-field="name"           value="${escHtml(m.name           ||'')}" placeholder="GFX ${i+1}"></td>
       <td style="padding:4px 6px;"><input class="gfx-inp" type="text" data-idx="${i}" data-field="role"           value="${escHtml(m.role           ||'')}" placeholder="Role"></td>
       <td style="padding:4px 6px;"><input class="gfx-inp" type="text" data-idx="${i}" data-field="description"   value="${escHtml(m.description    ||'')}" placeholder="Description"></td>
       <td style="padding:4px 6px;"><input class="gfx-inp" type="text" data-idx="${i}" data-field="enableVariable" value="${escHtml(m.enableVariable ||'')}" placeholder="e.g. gfx_render_1"></td>
+      <td style="padding:4px 10px;text-align:center;">
+        <div class="gfx-cell-indicator ${st}" id="gfx-cfg-dot-${i}" title="${escHtml(dotTitle)}"
+             style="margin:0 auto;cursor:help;"></div>
+      </td>
       <td style="padding:4px 10px;text-align:center;">
         <input type="checkbox" data-idx="${i}" data-field="enabled" class="gfx-chk" ${m.enabled !== false ? 'checked' : ''}>
       </td>
