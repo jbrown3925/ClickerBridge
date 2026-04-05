@@ -426,7 +426,134 @@ input:focus {
 
 
 
-/* ─── Log viewer ─────────────────────────────────────── */
+/* ─── Status tab — direction arrows ─────────────────── */
+.status-arrows {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.status-arrow-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 28px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  transition: border-color .2s, box-shadow .2s;
+}
+.status-arrow-card.flash-back {
+  border-color: var(--red);
+  box-shadow: 0 0 40px rgba(232,58,58,.35);
+}
+.status-arrow-card.flash-fwd {
+  border-color: var(--green);
+  box-shadow: 0 0 40px rgba(58,232,122,.35);
+}
+.arrow-gfx {
+  font-size: 7rem;
+  line-height: 1;
+  transition: color .15s, text-shadow .15s;
+  user-select: none;
+}
+.arrow-back { color: rgba(232,58,58,.25); }
+.arrow-fwd  { color: rgba(58,232,122,.25); }
+.status-arrow-card.flash-back  .arrow-back { color: var(--red);   text-shadow: 0 0 40px rgba(232,58,58,.6); }
+.status-arrow-card.flash-fwd   .arrow-fwd  { color: var(--green); text-shadow: 0 0 40px rgba(58,232,122,.6); }
+.arrow-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.arrow-label {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.arrow-key {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+/* ─── Status tab — GFX grid ──────────────────────────── */
+.status-grid-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.gfx-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 10px;
+}
+.gfx-cell {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  transition: border-color .2s, box-shadow .2s;
+  min-height: 90px;
+}
+.gfx-cell:hover { border-color: var(--border-hi); }
+.gfx-cell-num {
+  position: absolute;
+  top: 6px; left: 9px;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  line-height: 1;
+}
+.gfx-cell-indicator {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+  align-self: flex-end;
+  transition: background .3s, box-shadow .3s;
+}
+.gfx-cell-indicator.online  { background: var(--green); box-shadow: 0 0 6px rgba(58,232,122,.5); }
+.gfx-cell-indicator.error   { background: var(--red);   box-shadow: 0 0 6px rgba(232,58,58,.5); }
+.gfx-cell-indicator.idle    { background: var(--yellow); }
+.gfx-cell-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  margin-top: 10px;
+}
+.gfx-cell-sub {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.gfx-cell-osc {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--border-hi);
+  margin-top: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
 #log-output {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -662,6 +789,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
   <nav class="tabs">
     <button class="tab-btn active" data-tab="config">Config</button>
     <button class="tab-btn" data-tab="mappings">Mappings</button>
+    <button class="tab-btn" data-tab="status">Status</button>
     <button class="tab-btn" data-tab="log">Activity</button>
     <button class="tab-btn" data-tab="reference">Reference</button>
   </nav>
@@ -798,6 +926,42 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
         </thead>
         <tbody id="map-tbody"></tbody>
       </table>
+    </div>
+
+  </div>
+
+  <!-- ══ TAB: STATUS ════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-status">
+
+    <!-- ── Direction arrows ──────────────────────────────────────── -->
+    <div class="status-arrows">
+
+      <div class="status-arrow-card" id="arrow-back">
+        <div class="arrow-gfx arrow-back">&#9664;</div>
+        <div class="arrow-meta">
+          <span class="arrow-label" id="arrow-back-label">Back</span>
+          <span class="arrow-key"   id="arrow-back-key">—</span>
+        </div>
+      </div>
+
+      <div class="status-arrow-card" id="arrow-fwd">
+        <div class="arrow-gfx arrow-fwd">&#9654;</div>
+        <div class="arrow-meta">
+          <span class="arrow-label" id="arrow-fwd-label">Forward</span>
+          <span class="arrow-key"   id="arrow-fwd-key">—</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── GFX Machine grid ───────────────────────────────────────── -->
+    <div class="status-grid-header">
+      <p class="section-title" style="margin-bottom:0; flex:1;">GFX Machines</p>
+      <span class="text-muted" style="font-size:0.72rem;">2 × 5 grid · update logic coming</span>
+    </div>
+
+    <div class="gfx-grid" id="gfx-grid">
+      <!-- Populated by renderGfxGrid() -->
     </div>
 
   </div>
@@ -1022,6 +1186,8 @@ let logPollTimer = null;
 window.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   renderMappings();
+  renderGfxGrid();
+  updateStatusArrows();
   startStatusPoll();
   startLogPoll();
   initFirePanel();
@@ -1049,6 +1215,7 @@ function loadConfig() {
       document.getElementById('cfg-delay').value    = config.settings.osc_press_delay_ms;
       document.getElementById('cfg-loglevel').value = config.settings.log_level;
       renderMappings();
+      updateStatusArrows();
       toast('Config loaded', 'ok');
     })
     .catch(() => {
@@ -1273,6 +1440,7 @@ function assignLearnedKey() {
 
   config.mappings[learnedKey] = { label, page, row, column, action };
   renderMappings();
+  updateStatusArrows();
   _syncMappingsFromTable();
   _syncSettingsFromForm();
   _postConfig(`Key ${learnedKey} mapped and saved`);
@@ -1319,7 +1487,90 @@ function relearnRow(btn) {
   document.getElementById('key-code').textContent = 'listening';
 }
 
-// ── Status polling + keypress stream ───────────────────────────────────
+// ── Status tab ─────────────────────────────────────────────────────────
+
+// Keywords used to identify Forward/Next and Back mappings by label
+const FWD_KEYWORDS  = ['forward', 'next', 'fwd', 'advance'];
+const BACK_KEYWORDS = ['back', 'prev', 'previous', 'backward', 'reverse'];
+
+// GFX machine slot definitions — names + sub-labels editable here
+// status: 'idle' | 'online' | 'error' | 'offline'
+let gfxMachines = [
+  { name: 'GFX 1',  sub: 'Slot 1', status: 'idle', osc: '' },
+  { name: 'GFX 2',  sub: 'Slot 2', status: 'idle', osc: '' },
+  { name: 'GFX 3',  sub: 'Slot 3', status: 'idle', osc: '' },
+  { name: 'GFX 4',  sub: 'Slot 4', status: 'idle', osc: '' },
+  { name: 'GFX 5',  sub: 'Slot 5', status: 'idle', osc: '' },
+  { name: 'GFX 6',  sub: 'Slot 6', status: 'idle', osc: '' },
+  { name: 'GFX 7',  sub: 'Slot 7', status: 'idle', osc: '' },
+  { name: 'GFX 8',  sub: 'Slot 8', status: 'idle', osc: '' },
+  { name: 'GFX 9',  sub: 'Slot 9', status: 'idle', osc: '' },
+  { name: 'GFX 10', sub: 'Slot 10', status: 'idle', osc: '' },
+];
+
+/**
+ * Resolve which mapped keys are Forward and Back by scanning labels.
+ * Returns { fwd: {key, label, osc}, back: {key, label, osc} }
+ */
+function resolveDirectionKeys() {
+  let fwd = null, back = null;
+  Object.entries(config.mappings).forEach(([key, m]) => {
+    const l = (m.label || '').toLowerCase();
+    const osc = `/location/${m.page}/${m.row}/${m.column}/${m.action}`;
+    if (!fwd  && FWD_KEYWORDS.some(w => l.includes(w)))  fwd  = { key, label: m.label, osc };
+    if (!back && BACK_KEYWORDS.some(w => l.includes(w))) back = { key, label: m.label, osc };
+  });
+  return { fwd, back };
+}
+
+function updateStatusArrows() {
+  const { fwd, back } = resolveDirectionKeys();
+
+  document.getElementById('arrow-fwd-label').textContent  = fwd  ? fwd.label  : 'Forward';
+  document.getElementById('arrow-fwd-key').textContent    = fwd  ? fwd.key    : '—';
+  document.getElementById('arrow-back-label').textContent = back ? back.label : 'Back';
+  document.getElementById('arrow-back-key').textContent   = back ? back.key   : '—';
+}
+
+let arrowFlashTimer = { fwd: null, back: null };
+
+function flashArrow(direction) {
+  const card = document.getElementById(direction === 'fwd' ? 'arrow-fwd' : 'arrow-back');
+  const cls  = direction === 'fwd' ? 'flash-fwd' : 'flash-back';
+  card.classList.add(cls);
+  clearTimeout(arrowFlashTimer[direction]);
+  arrowFlashTimer[direction] = setTimeout(() => card.classList.remove(cls), 600);
+}
+
+/**
+ * Called from pollStatus when a new key arrives.
+ * Checks if it matches a direction key and flashes the arrow.
+ */
+function statusCheckArrow(key) {
+  const { fwd, back } = resolveDirectionKeys();
+  if (fwd  && key === fwd.key)  flashArrow('fwd');
+  if (back && key === back.key) flashArrow('back');
+}
+
+function renderGfxGrid() {
+  const grid = document.getElementById('gfx-grid');
+  grid.innerHTML = '';
+  gfxMachines.forEach((m, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'gfx-cell';
+    cell.id = `gfx-cell-${i}`;
+    cell.innerHTML = `
+      <span class="gfx-cell-num">${i + 1}</span>
+      <div class="gfx-cell-indicator ${m.status}" title="${m.status}"></div>
+      <div class="gfx-cell-name">${escHtml(m.name)}</div>
+      <div class="gfx-cell-sub">${escHtml(m.sub)}</div>
+      ${m.osc ? `<div class="gfx-cell-osc">${escHtml(m.osc)}</div>` : ''}
+    `;
+    grid.appendChild(cell);
+  });
+}
+
+
 let lastStatusKey = null;
 let lastStatusOsc = null;
 
@@ -1338,12 +1589,13 @@ function pollStatus() {
       dot.className = 'status-dot ' + (s.state || 'stopped');
       label.textContent = s.state || 'unknown';
 
-      // New key event — drives both keypress stream and learn detection
+      // New key event — drives keypress stream, learn detection, and status arrows
       if (s.last_key && s.last_key !== lastStatusKey) {
         lastStatusKey = s.last_key;
         lastStatusOsc = s.last_osc || '';
         appendKeypress(s.last_key, s.last_osc || '');
         document.getElementById('log-last-key').textContent = 'last key: ' + s.last_key;
+        statusCheckArrow(s.last_key);
 
         // Feed learn mode if active — single-shot, stops itself
         if (learnActive && s.last_key !== lastLearnKey) {
