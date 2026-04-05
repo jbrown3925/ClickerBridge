@@ -541,6 +541,13 @@ input:focus {
   line-height: 1.2;
   margin-top: 10px;
 }
+.gfx-cell-role {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--accent2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 .gfx-cell-sub {
   font-family: var(--mono);
   font-size: 0.65rem;
@@ -556,6 +563,22 @@ input:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.gfx-disabled { opacity: 0.35; }
+
+/* GFX config table inputs */
+.gfx-inp {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  padding: 5px 8px;
+  outline: none;
+  transition: border-color var(--transition);
+}
+.gfx-inp:focus { border-color: var(--accent2); }
 
 
 #log-output {
@@ -932,6 +955,34 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
       </table>
     </div>
 
+    <!-- ── GFX Machine Config ─────────────────────────────────────── -->
+    <hr style="margin:24px 0;">
+    <div class="flex-gap" style="margin-bottom:10px; justify-content:space-between;">
+      <p class="section-title" style="margin-bottom:0; flex:1;">GFX Machine Config</p>
+      <button class="btn btn-primary" onclick="saveGfxConfig()">Save GFX Config</button>
+    </div>
+    <p class="text-muted" style="margin-bottom:12px; font-size:0.78rem;">
+      Enter the Companion connection label in <strong>Enable Variable</strong> to poll
+      <code>$(internal:connection_LABEL_status)</code> every 2 seconds.
+      The Status grid dot turns <strong style="color:var(--green)">green</strong> when the value is <code>1</code> (enabled)
+      and <strong style="color:var(--red)">red</strong> when <code>0</code> (disabled).
+    </p>
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="map-table">
+        <thead>
+          <tr>
+            <th style="width:52px;">#</th>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Description</th>
+            <th>Enable Variable</th>
+            <th style="width:52px; text-align:center;">Active</th>
+          </tr>
+        </thead>
+        <tbody id="gfx-config-tbody"></tbody>
+      </table>
+    </div>
+
   </div>
 
   <!-- ══ TAB: STATUS ════════════════════════════════════════════════ -->
@@ -961,7 +1012,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
     <!-- ── GFX Machine grid ───────────────────────────────────────── -->
     <div class="status-grid-header">
       <p class="section-title" style="margin-bottom:0; flex:1;">GFX Machines</p>
-      <span class="text-muted" style="font-size:0.72rem;">2 × 5 grid · update logic coming</span>
+      <span class="text-muted" style="font-size:0.72rem;">polled every 2s via Companion variable</span>
     </div>
 
     <div class="gfx-grid" id="gfx-grid">
@@ -1191,9 +1242,11 @@ window.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   renderMappings();
   renderGfxGrid();
+  renderGfxConfigForm();
   updateStatusArrows();
   startStatusPoll();
   startLogPoll();
+  startGfxVarPoll();
   initFirePanel();
 
   // Tab switching
@@ -1220,6 +1273,9 @@ function loadConfig() {
       document.getElementById('cfg-loglevel').value = config.settings.log_level;
       renderMappings();
       updateStatusArrows();
+      renderGfxGrid();
+      renderGfxConfigForm();
+      startGfxVarPoll();
       toast('Config loaded', 'ok');
     })
     .catch(() => {
@@ -1497,20 +1553,31 @@ function relearnRow(btn) {
 const FWD_KEYWORDS  = ['forward', 'next', 'fwd', 'advance'];
 const BACK_KEYWORDS = ['back', 'prev', 'previous', 'backward', 'reverse'];
 
-// GFX machine slot definitions — names + sub-labels editable here
-// status: 'idle' | 'online' | 'error' | 'offline'
-let gfxMachines = [
-  { name: 'GFX 1',  sub: 'Slot 1', status: 'idle', osc: '' },
-  { name: 'GFX 2',  sub: 'Slot 2', status: 'idle', osc: '' },
-  { name: 'GFX 3',  sub: 'Slot 3', status: 'idle', osc: '' },
-  { name: 'GFX 4',  sub: 'Slot 4', status: 'idle', osc: '' },
-  { name: 'GFX 5',  sub: 'Slot 5', status: 'idle', osc: '' },
-  { name: 'GFX 6',  sub: 'Slot 6', status: 'idle', osc: '' },
-  { name: 'GFX 7',  sub: 'Slot 7', status: 'idle', osc: '' },
-  { name: 'GFX 8',  sub: 'Slot 8', status: 'idle', osc: '' },
-  { name: 'GFX 9',  sub: 'Slot 9', status: 'idle', osc: '' },
-  { name: 'GFX 10', sub: 'Slot 10', status: 'idle', osc: '' },
-];
+// GFX machine runtime status — driven by Companion variable polling
+// Config (name/role/description/enableVariable) lives in config.gfx_machines
+// and is loaded from config.json. Runtime status is fetched every 2s.
+const GFX_COUNT = 10;
+let gfxStatus = Array.from({ length: GFX_COUNT }, () => 'idle');
+let gfxVarPollTimer = null;
+
+function defaultGfxMachines() {
+  return Array.from({ length: GFX_COUNT }, (_, i) => ({
+    name:           `GFX ${i + 1}`,
+    role:           '',
+    description:    '',
+    enableVariable: '',
+    enabled:        true,
+  }));
+}
+
+/** Ensure config.gfx_machines is always a full 10-element array */
+function ensureGfxConfig() {
+  if (!Array.isArray(config.gfx_machines) || config.gfx_machines.length !== GFX_COUNT) {
+    config.gfx_machines = defaultGfxMachines();
+  }
+}
+
+// ── GFX grid rendering ──────────────────────────────────────────────────
 
 /**
  * Resolve which mapped keys are Forward and Back by scanning labels.
@@ -1565,21 +1632,113 @@ function statusCheckArrow(key) {
 }
 
 function renderGfxGrid() {
+  ensureGfxConfig();
   const grid = document.getElementById('gfx-grid');
   grid.innerHTML = '';
-  gfxMachines.forEach((m, i) => {
+  config.gfx_machines.forEach((m, i) => {
+    const st  = gfxStatus[i] || 'idle';
     const cell = document.createElement('div');
-    cell.className = 'gfx-cell';
+    cell.className = 'gfx-cell' + (m.enabled === false ? ' gfx-disabled' : '');
     cell.id = `gfx-cell-${i}`;
     cell.innerHTML = `
       <span class="gfx-cell-num">${i + 1}</span>
-      <div class="gfx-cell-indicator ${m.status}" title="${m.status}"></div>
-      <div class="gfx-cell-name">${escHtml(m.name)}</div>
-      <div class="gfx-cell-sub">${escHtml(m.sub)}</div>
-      ${m.osc ? `<div class="gfx-cell-osc">${escHtml(m.osc)}</div>` : ''}
+      <div class="gfx-cell-indicator ${st}" id="gfx-dot-${i}" title="${st}"></div>
+      <div class="gfx-cell-name">${escHtml(m.name || `GFX ${i+1}`)}</div>
+      ${m.role        ? `<div class="gfx-cell-role">${escHtml(m.role)}</div>` : ''}
+      ${m.description ? `<div class="gfx-cell-sub">${escHtml(m.description)}</div>` : ''}
+      ${m.enableVariable ? `<div class="gfx-cell-osc" title="$(internal:connection_${m.enableVariable.replace(/'/g,'').replace(/"/g,'')}_status)">${escHtml(m.enableVariable)}</div>` : ''}
     `;
     grid.appendChild(cell);
   });
+}
+
+function updateGfxDot(i, status) {
+  const dot = document.getElementById(`gfx-dot-${i}`);
+  if (dot) {
+    dot.className = `gfx-cell-indicator ${status}`;
+    dot.title = status;
+  }
+  gfxStatus[i] = status;
+}
+
+/** Poll Companion variable for each enabled GFX machine every 2 seconds */
+function startGfxVarPoll() {
+  if (gfxVarPollTimer) clearInterval(gfxVarPollTimer);
+  gfxVarPollTimer = setInterval(pollGfxVariables, 2000);
+  pollGfxVariables(); // immediate first check
+}
+
+async function pollGfxVariables() {
+  ensureGfxConfig();
+  const ip   = config.settings.companion_ip   || '127.0.0.1';
+  const port = config.settings.companion_port  || 8888;
+
+  for (let i = 0; i < GFX_COUNT; i++) {
+    const m = config.gfx_machines[i];
+    if (!m.enabled || !m.enableVariable || !m.enableVariable.trim()) continue;
+
+    // Strip any quotes — the pattern $(internal:connection_'LABEL'_status) uses
+    // quotes as notation only; the actual variable name has none.
+    const varLabel = m.enableVariable.trim().replace(/'/g, '').replace(/"/g, '');
+    const varName  = `connection_${varLabel}_status`;
+    const url = `/companion-variable?ip=${encodeURIComponent(ip)}&port=${encodeURIComponent(port)}&variable=${encodeURIComponent(varName)}`;
+
+    try {
+      const res  = await fetch(url);
+      const data = await res.json();
+      const val  = (data.value || '').trim();
+      // Companion returns '1' when enabled/online, '0' when disabled/offline
+      updateGfxDot(i, val === '1' ? 'online' : val === '0' ? 'error' : 'idle');
+    } catch {
+      updateGfxDot(i, 'error');
+    }
+  }
+}
+
+// ── GFX config form (bottom of Mappings tab) ────────────────────────────
+
+function renderGfxConfigForm() {
+  ensureGfxConfig();
+  const tbody = document.getElementById('gfx-config-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  config.gfx_machines.forEach((m, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:var(--mono);font-size:0.75rem;color:var(--muted);padding:8px 10px;white-space:nowrap;">GFX ${i+1}</td>
+      <td style="padding:4px 6px;"><input class="gfx-inp" type="text" data-idx="${i}" data-field="name"           value="${escHtml(m.name           ||'')}" placeholder="GFX ${i+1}"></td>
+      <td style="padding:4px 6px;"><input class="gfx-inp" type="text" data-idx="${i}" data-field="role"           value="${escHtml(m.role           ||'')}" placeholder="Role"></td>
+      <td style="padding:4px 6px;"><input class="gfx-inp" type="text" data-idx="${i}" data-field="description"   value="${escHtml(m.description    ||'')}" placeholder="Description"></td>
+      <td style="padding:4px 6px;"><input class="gfx-inp" type="text" data-idx="${i}" data-field="enableVariable" value="${escHtml(m.enableVariable ||'')}" placeholder="e.g. gfx_render_1"></td>
+      <td style="padding:4px 10px;text-align:center;">
+        <input type="checkbox" data-idx="${i}" data-field="enabled" class="gfx-chk" ${m.enabled !== false ? 'checked' : ''}>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Live update config on any field change
+  tbody.querySelectorAll('.gfx-inp').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const idx   = parseInt(inp.dataset.idx);
+      const field = inp.dataset.field;
+      config.gfx_machines[idx][field] = inp.value;
+    });
+  });
+  tbody.querySelectorAll('.gfx-chk').forEach(chk => {
+    chk.addEventListener('change', () => {
+      const idx = parseInt(chk.dataset.idx);
+      config.gfx_machines[idx].enabled = chk.checked;
+    });
+  });
+}
+
+function saveGfxConfig() {
+  _syncSettingsFromForm();
+  _syncMappingsFromTable();
+  _postConfig('GFX machine config saved');
+  renderGfxGrid();       // update status grid immediately
+  startGfxVarPoll();     // restart poll with new variables
 }
 
 

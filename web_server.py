@@ -97,6 +97,32 @@ class Handler(BaseHTTPRequestHandler):
                 self._headers("text/plain; charset=utf-8")
                 self.wfile.write(b"(no log yet - bridge has not run)")
 
+        elif path == "/companion-variable":
+            # Proxy a Companion HTTP variable GET to avoid CORS issues.
+            # Query params: ip, port, variable
+            # Companion API: GET http://<ip>:<port>/api/variable/internal/<varname>/value
+            from urllib.parse import parse_qs, quote
+            import urllib.request
+            qs       = parse_qs(urlparse(self.path).query)
+            comp_ip  = qs.get("ip",       ["127.0.0.1"])[0]
+            comp_port= qs.get("port",     ["8888"])[0]
+            var_name = qs.get("variable", [""])[0]
+
+            if not var_name:
+                self._headers(status=400)
+                self.wfile.write(json.dumps({"error": "missing variable param"}).encode())
+                return
+
+            url = f"http://{comp_ip}:{comp_port}/api/variable/internal/{quote(var_name)}/value"
+            try:
+                with urllib.request.urlopen(url, timeout=1.5) as r:
+                    body = r.read().decode(errors="replace").strip()
+                self._headers()
+                self.wfile.write(json.dumps({"value": body, "variable": var_name}).encode())
+            except Exception as e:
+                self._headers()
+                self.wfile.write(json.dumps({"value": "", "variable": var_name, "error": str(e)}).encode())
+
         else:
             self._headers(status=404)
             self.wfile.write(json.dumps({"error": f"not found: {path}"}).encode())

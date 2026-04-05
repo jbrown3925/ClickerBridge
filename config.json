@@ -6,5 +6,77 @@
     "osc_press_delay_ms": 50,
     "log_level": "INFO"
   },
-  "mappings": {}
+  "mappings": {},
+  "gfx_machines": [
+    {
+      "name": "GFX 1",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    },
+    {
+      "name": "GFX 2",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    },
+    {
+      "name": "GFX 3",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    },
+    {
+      "name": "GFX 4",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    },
+    {
+      "name": "GFX 5",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    },
+    {
+      "name": "GFX 6",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    },
+    {
+      "name": "GFX 7",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    },
+    {
+      "name": "GFX 8",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    },
+    {
+      "name": "GFX 9",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    },
+    {
+      "name": "GFX 10",
+      "role": "",
+      "description": "",
+      "enableVariable": "",
+      "enabled": true
+    }
+  ]
 }
