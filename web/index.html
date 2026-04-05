@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PerfectCue Bridge</title>
+<style>
+/* ─── Fonts ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap');
+
+/* ─── Design tokens ──────────────────────────────────── */
+:root {
+  --bg:        #0d0f12;
+  --surface:   #13161b;
+  --border:    #1e2329;
+  --border-hi: #2e343d;
+  --text:      #c8cdd6;
+  --muted:     #5a6270;
+  --accent:    #e8643a;
+  --accent2:   #3a9be8;
+  --green:     #3ae87a;
+  --yellow:    #e8c43a;
+  --red:       #e83a3a;
+  --mono:      'DM Mono', monospace;
+  --sans:      'Syne', sans-serif;
+  --radius:    6px;
+  --transition: 180ms ease;
+}
+
+/* ─── Reset ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── Grid lines background ──────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Layout ─────────────────────────────────────────── */
+.shell {
+  position: relative; z-index: 1;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px 60px;
+}
+
+/* ─── Header ─────────────────────────────────────────── */
+header {
+  padding: 40px 0 32px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 36px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.logo-icon {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 0 24px rgba(232,100,58,.35);
+  flex-shrink: 0;
+}
+.logo-text h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1;
+}
+.logo-text p {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 4px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ─── Status badge ───────────────────────────────────── */
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 100px;
+  border: 1px solid var(--border-hi);
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.status-dot.running  { background: var(--green);  box-shadow: 0 0 8px rgba(58,232,122,.5); }
+.status-dot.error    { background: var(--red);    box-shadow: 0 0 8px rgba(232,58,58,.5); }
+.status-dot.stopped  { background: var(--muted); }
+.status-dot.starting { background: var(--yellow); box-shadow: 0 0 8px rgba(232,196,58,.5); animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ─── Tab bar ────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  background: none; border: none;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 18px;
+  cursor: pointer;
+  position: relative;
+  transition: color var(--transition);
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--accent);
+}
+.tab-btn.active::after {
+  content: '';
+  position: absolute; bottom: -1px; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ─── Section titles ─────────────────────────────────── */
+.section-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ─── Cards ──────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  margin-bottom: 16px;
+  transition: border-color var(--transition);
+}
+.card:hover { border-color: var(--border-hi); }
+
+/* ─── Form fields ────────────────────────────────────── */
+.field-row {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.field-row:last-child { border-bottom: none; }
+.field-label {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text);
+}
+.field-hint {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+input[type="text"],
+input[type="number"] {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  padding: 7px 10px;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+input:focus {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 3px rgba(58,155,232,.15);
+}
+
+/* ─── Buttons ────────────────────────────────────────── */
+.btn {
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: var(--radius);
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { box-shadow: 0 0 16px rgba(232,100,58,.4); }
+.btn-secondary { background: var(--border-hi); color: var(--text); }
+.btn-secondary:hover { background: #2e3540; }
+.btn-danger { background: rgba(232,58,58,.12); color: var(--red); border: 1px solid rgba(232,58,58,.2); }
+.btn-danger:hover { background: rgba(232,58,58,.2); }
+.btn-icon { padding: 7px 10px; }
+.btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+/* ─── Mapping table ──────────────────────────────────── */
+.map-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.map-table th {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.map-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.map-table tr:last-child td { border-bottom: none; }
+.map-table tr:hover td { background: rgba(255,255,255,.02); }
+.key-chip {
+  display: inline-block;
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  color: var(--accent2);
+  transition: background .3s, color .3s, border-color .3s;
+}
+.key-chip.flash-chip {
+  background: rgba(58,232,122,.15);
+  color: var(--green);
+  border-color: rgba(58,232,122,.4);
+}
+.map-table input {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 0.8rem;
+}
+.osc-preview {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* ─── Learn mode panel ───────────────────────────────── */
+#learn-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.learn-header {
+  padding: 16px 22px;
+  background: rgba(232,100,58,.06);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.learn-header h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.learn-body {
+  padding: 28px 22px;
+  text-align: center;
+}
+.learn-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.learn-key-display {
+  width: 140px; height: 140px;
+  border-radius: 50%;
+  border: 2px solid var(--border-hi);
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color .3s, box-shadow .3s, background .3s;
+  margin: 0 auto;
+}
+.learn-key-display.flash {
+  border-color: var(--accent);
+  background: rgba(232,100,58,.08);
+  box-shadow: 0 0 40px rgba(232,100,58,.3);
+}
+.learn-key-name {
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+.learn-key-code {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+.learn-instructions {
+  font-size: 0.8rem;
+  color: var(--muted);
+  max-width: 320px;
+  line-height: 1.6;
+}
+.learn-assign-form {
+  display: none;
+  margin-top: 20px;
+  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.learn-assign-form.visible { display: flex; }
+.learn-assign-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px;
+  gap: 8px;
+}
+
+/* ─── Log viewer ─────────────────────────────────────── */
+#log-output {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  line-height: 1.7;
+  padding: 16px;
+  height: 220px;
+  overflow-y: auto;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+#log-output .log-info  { color: var(--text); }
+#log-output .log-event { color: var(--accent2); }
+#log-output .log-osc   { color: var(--accent); }
+#log-output .log-error { color: var(--red); }
+#log-output .log-test  { color: var(--yellow); }
+#log-output .log-time  { color: var(--muted); margin-right: 8px; }
+
+/* ─── Keypress stream ────────────────────────────────── */
+#keypress-output {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.8;
+  padding: 14px 16px;
+  height: 160px;
+  overflow-y: auto;
+}
+.kp-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+  animation: kpFade .2s ease;
+}
+@keyframes kpFade { from { opacity:0; transform:translateX(-4px); } to { opacity:1; } }
+.kp-time     { color: var(--muted); font-size: 0.68rem; flex-shrink: 0; }
+.kp-key      { color: var(--accent2); min-width: 120px; }
+.kp-arrow    { color: var(--muted); }
+.kp-osc      { color: var(--accent); font-size: 0.72rem; }
+.kp-unmapped { color: var(--muted); font-style: italic; }
+
+/* ─── Manual fire panel ──────────────────────────────── */
+.fire-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.fire-row {
+  display: grid;
+  grid-template-columns: 1fr 64px 64px 64px 148px auto;
+  gap: 8px;
+  align-items: center;
+}
+.fire-row input, .fire-row select {
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  padding: 7px 9px;
+  outline: none;
+  width: 100%;
+  transition: border-color var(--transition);
+}
+.fire-row input:focus, .fire-row select:focus {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 2px rgba(58,155,232,.12);
+}
+.fire-preview {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--accent);
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+/* ─── Test button in mappings table ──────────────────── */
+.btn-test {
+  background: rgba(58,155,232,.1);
+  color: var(--accent2);
+  border: 1px solid rgba(58,155,232,.2);
+  font-size: 0.7rem;
+  padding: 5px 10px;
+  letter-spacing: 0.04em;
+}
+.btn-test:hover { background: rgba(58,155,232,.22); }
+.btn-test.fired {
+  background: rgba(58,232,122,.15);
+  color: var(--green);
+  border-color: rgba(58,232,122,.3);
+  transition: all .3s;
+}
+
+
+
+/* ─── Reference tables ───────────────────────────────── */
+.ref-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.ref-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ref-card-key {
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--accent2);
+  padding: 4px 8px;
+  min-width: 72px;
+  text-align: center;
+}
+.ref-card-info p {
+  font-size: 0.8rem;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.2;
+}
+.ref-card-info small {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.osc-path-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 2;
+  color: var(--text);
+}
+.osc-path-box .path { color: var(--accent); }
+.osc-path-box .arg  { color: var(--accent2); }
+.osc-path-box .cmt  { color: var(--muted); }
+
+/* ─── Toast ──────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 28px; right: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  padding: 12px 18px;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .25s, transform .25s;
+  pointer-events: none;
+  z-index: 100;
+  max-width: 320px;
+}
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.ok   { border-left: 3px solid var(--green); }
+#toast.err  { border-left: 3px solid var(--red); }
+
+/* ─── Misc ───────────────────────────────────────────── */
+.flex-gap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.monobadge {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background: var(--bg);
+  border: 1px solid var(--border-hi);
+  border-radius: 4px;
+  padding: 3px 7px;
+  color: var(--muted);
+}
+code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--accent2);
+}
+.text-muted { color: var(--muted); font-size: 0.8rem; }
+hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+/* ─── Responsive ─────────────────────────────────────── */
+@media (max-width: 600px) {
+  .field-row { grid-template-columns: 1fr; }
+  header { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ══ HEADER ══════════════════════════════════════════════════════ -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⬡</div>
+      <div class="logo-text">
+        <h1>PerfectCue Bridge</h1>
+        <p>HID → OSC → Companion</p>
+      </div>
+    </div>
+    <div class="status-badge">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-label">Checking...</span>
+    </div>
+  </header>
+
+  <!-- ══ TABS ════════════════════════════════════════════════════════ -->
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="config">Config</button>
+    <button class="tab-btn" data-tab="mappings">Mappings</button>
+    <button class="tab-btn" data-tab="learn">Learn</button>
+    <button class="tab-btn" data-tab="log">Activity</button>
+    <button class="tab-btn" data-tab="reference">Reference</button>
+  </nav>
+
+  <!-- ══ TAB: CONFIG ═════════════════════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-config">
+    <p class="section-title">Companion Target</p>
+    <div class="card">
+      <div class="field-row">
+        <div>
+          <div class="field-label">companion_ip</div>
+          <div class="field-hint">IP address of the machine running Companion</div>
+        </div>
+        <input type="text" id="cfg-ip" value="127.0.0.1" placeholder="127.0.0.1">
+      </div>
+      <div class="field-row">
+        <div>
+          <div class="field-label">companion_port</div>
+          <div class="field-hint">OSC listener port configured in Companion</div>
+        </div>
+        <input type="number" id="cfg-port" value="12321" min="1024" max="65535">
+      </div>
+    </div>
+
+    <p class="section-title">Device</p>
+    <div class="card">
+      <div class="field-row">
+        <div>
+          <div class="field-label">device_name_filter</div>
+          <div class="field-hint">Substring matched against evdev device names</div>
+        </div>
+        <input type="text" id="cfg-filter" value="DSAN" placeholder="DSAN">
+      </div>
+      <div class="field-row">
+        <div>
+          <div class="field-label">osc_press_delay_ms</div>
+          <div class="field-hint">Milliseconds between OSC press (1) and release (0)</div>
+        </div>
+        <input type="number" id="cfg-delay" value="50" min="10" max="500">
+      </div>
+      <div class="field-row">
+        <div>
+          <div class="field-label">log_level</div>
+          <div class="field-hint">DEBUG | INFO | WARNING | ERROR</div>
+        </div>
+        <input type="text" id="cfg-loglevel" value="INFO">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveConfig()">Save config.json</button>
+      <button class="btn btn-secondary" onclick="loadConfig()">Reload from file</button>
+    </div>
+
+    <hr>
+    <p class="section-title">Service Control</p>
+    <div class="card">
+      <p class="text-muted" style="margin-bottom:14px;">
+        These commands require the bridge to be installed as a systemd service.
+        Run <code>install.sh</code> to set that up.
+      </p>
+      <div class="flex-gap">
+        <button class="btn btn-secondary service-btn" onclick="serviceCmd('restart')">⟳ Restart</button>
+        <button class="btn btn-secondary service-btn" onclick="serviceCmd('stop')">■ Stop</button>
+        <button class="btn btn-secondary service-btn" onclick="serviceCmd('start')">▶ Start</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: MAPPINGS ═══════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-mappings">
+    <div class="flex-gap" style="margin-bottom:18px; justify-content: space-between;">
+      <p class="section-title" style="margin-bottom:0; flex:1;">Key → Button Mappings</p>
+      <div class="flex-gap">
+        <button class="btn btn-secondary" onclick="addMapping()">+ Add Row</button>
+        <button class="btn btn-primary" onclick="saveMappings()">Save Mappings</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="map-table" id="map-table">
+        <thead>
+          <tr>
+            <th>evdev Key</th>
+            <th>Label</th>
+            <th>Page</th>
+            <th>Row</th>
+            <th>Col</th>
+            <th>Action</th>
+            <th>OSC Path</th>
+            <th>Test</th>
+            <th>Re-learn</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="map-tbody"></tbody>
+      </table>
+    </div>
+
+    <p class="text-muted" style="margin-top:12px;">
+      Not sure which key code your clicker sends? Use the <strong>Learn</strong> tab to detect them.
+    </p>
+  </div>
+
+  <!-- ══ TAB: LEARN ══════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-learn">
+    <div id="learn-panel">
+      <div class="learn-header">
+        <h3>Key Detection</h3>
+        <div class="flex-gap">
+          <button class="btn btn-secondary btn-icon" id="learn-toggle" onclick="toggleLearn()">▶ Start Listening</button>
+        </div>
+      </div>
+      <div class="learn-body">
+        <div class="learn-waiting">
+          <div class="learn-key-display" id="key-display">
+            <span class="learn-key-name" id="key-name">—</span>
+            <span class="learn-key-code" id="key-code">waiting</span>
+          </div>
+          <p class="learn-instructions" id="learn-instr">
+            Click <strong>Start Listening</strong>, then press a button on the PerfectCue to detect its key code.
+          </p>
+
+          <div class="learn-assign-form" id="learn-assign">
+            <p class="text-muted" style="text-align:left; font-size:0.8rem;">Assign detected key to a Companion button:</p>
+            <div class="learn-assign-row">
+              <input type="text"   id="la-label"  placeholder="Label (e.g. Forward)">
+              <input type="number" id="la-page"   placeholder="Page"   value="1" min="1" style="width:60px">
+              <input type="number" id="la-row"    placeholder="Row"    value="0" min="0" style="width:60px">
+              <input type="number" id="la-column" placeholder="Col"    value="0" min="0" style="width:60px">
+            </div>
+            <div>
+              <select id="la-action" style="width:100%;background:var(--bg);border:1px solid var(--border-hi);color:var(--text);border-radius:var(--radius);padding:7px 10px;font-family:var(--mono);font-size:0.82rem;">
+                <option value="press">press (down + up)</option>
+                <option value="down">down (hold)</option>
+                <option value="up">up (release)</option>
+                <option value="rotate-left">rotate-left</option>
+                <option value="rotate-right">rotate-right</option>
+              </select>
+            </div>
+            <div class="flex-gap">
+              <button class="btn btn-primary" onclick="assignLearnedKey()">Assign Key</button>
+              <button class="btn btn-secondary" onclick="skipLearnedKey()">Skip</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <p class="section-title">How Learn Mode Works</p>
+      <div class="card">
+        <ol style="padding-left:20px; line-height:2; font-size:0.83rem; color:var(--text);">
+          <li>Click <strong>Start Listening</strong>. The bridge keeps running normally — OSC still fires.</li>
+          <li>Press <strong>one button</strong> on the clicker. Listening stops automatically after the first press.</li>
+          <li>Enter a label, Companion page, row, column, and action, then click <strong>Assign Key</strong>.</li>
+          <li>The mapping is saved immediately. Click Start Listening again for the next button.</li>
+          <li>To update an existing key code, use the <strong>⟳ Re-learn</strong> button in the Mappings tab.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TAB: LOG / ACTIVITY ═════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-log">
+
+    <!-- Keypress stream -->
+    <div class="flex-gap" style="justify-content:space-between; margin-bottom:10px;">
+      <p class="section-title" style="margin-bottom:0; flex:1;">Live Key Events</p>
+      <div class="flex-gap">
+        <span class="monobadge" id="log-last-key">last key: —</span>
+        <button class="btn btn-secondary btn-icon" onclick="clearKeypress()">Clear</button>
+      </div>
+    </div>
+    <div id="keypress-output"><span style="color:var(--muted);">Waiting for key events from PerfectCue...</span></div>
+
+    <hr>
+
+    <!-- Manual OSC fire -->
+    <p class="section-title">Manual Test Fire</p>
+    <div class="fire-panel">
+      <p class="text-muted" style="margin-bottom:14px; font-size:0.8rem;">
+        Send a test OSC press directly to Companion without touching the clicker.
+      </p>
+      <div class="fire-row">
+        <div>
+          <div class="field-label" style="font-size:0.72rem; margin-bottom:4px;">Label / Note</div>
+          <input type="text" id="fire-label" placeholder="e.g. Test Forward">
+        </div>
+        <div>
+          <div class="field-label" style="font-size:0.72rem; margin-bottom:4px;">Page</div>
+          <input type="number" id="fire-page" value="1" min="1">
+        </div>
+        <div>
+          <div class="field-label" style="font-size:0.72rem; margin-bottom:4px;">Row</div>
+          <input type="number" id="fire-row" value="0" min="0">
+        </div>
+        <div>
+          <div class="field-label" style="font-size:0.72rem; margin-bottom:4px;">Col</div>
+          <input type="number" id="fire-col" value="0" min="0">
+        </div>
+        <div>
+          <div class="field-label" style="font-size:0.72rem; margin-bottom:4px;">Action</div>
+          <select id="fire-action">
+            <option value="press">press</option>
+            <option value="down">down</option>
+            <option value="up">up</option>
+            <option value="rotate-left">rotate-left</option>
+            <option value="rotate-right">rotate-right</option>
+          </select>
+        </div>
+        <div style="padding-top:20px;">
+          <button class="btn btn-primary" onclick="fireOSC()" id="fire-btn">▶ Fire</button>
+        </div>
+      </div>
+      <div class="fire-preview" id="fire-preview">/location/1/0/0/press</div>
+    </div>
+
+    <hr>
+
+    <!-- Bridge log -->
+    <div class="flex-gap" style="justify-content:space-between; margin-bottom:10px;">
+      <p class="section-title" style="margin-bottom:0; flex:1;">Bridge Log</p>
+      <div class="flex-gap">
+        <label style="font-size:0.78rem; color:var(--muted); display:flex; align-items:center; gap:6px;">
+          <input type="checkbox" id="log-autoscroll" checked> Auto-scroll
+        </label>
+        <button class="btn btn-secondary btn-icon" onclick="clearLog()">Clear</button>
+      </div>
+    </div>
+    <div id="log-output"></div>
+    <span class="text-muted" id="log-count" style="margin-top:8px; display:block;">0 lines</span>
+
+  </div>
+
+  <!-- ══ TAB: REFERENCE ══════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-reference">
+
+    <p class="section-title">PerfectCue Default Key Map</p>
+    <div class="ref-grid">
+      <div class="ref-card">
+        <div class="ref-card-key">KEY_RIGHT</div>
+        <div class="ref-card-info">
+          <p>Forward ▶</p>
+          <small>Next slide / cue</small>
+        </div>
+      </div>
+      <div class="ref-card">
+        <div class="ref-card-key">KEY_LEFT</div>
+        <div class="ref-card-info">
+          <p>Back ◀</p>
+          <small>Previous slide / cue</small>
+        </div>
+      </div>
+      <div class="ref-card">
+        <div class="ref-card-key">KEY_PERIOD</div>
+        <div class="ref-card-info">
+          <p>Blank ◼</p>
+          <small>Blank screen toggle</small>
+        </div>
+      </div>
+      <div class="ref-card">
+        <div class="ref-card-key">KEY_F5</div>
+        <div class="ref-card-info">
+          <p>Slideshow Start</p>
+          <small>PC-SYS / PC-Mini green button</small>
+        </div>
+      </div>
+      <div class="ref-card">
+        <div class="ref-card-key">KEY_ESCAPE</div>
+        <div class="ref-card-info">
+          <p>Slideshow Stop</p>
+          <small>PC-SYS / PC-Mini red button</small>
+        </div>
+      </div>
+      <div class="ref-card">
+        <div class="ref-card-key">KEY_B</div>
+        <div class="ref-card-info">
+          <p>Black Screen</p>
+          <small>Alternate blank (some configs)</small>
+        </div>
+      </div>
+      <div class="ref-card">
+        <div class="ref-card-key">KEY_W</div>
+        <div class="ref-card-info">
+          <p>White Screen</p>
+          <small>Alternate blank (some configs)</small>
+        </div>
+      </div>
+    </div>
+    <p class="text-muted">
+      Key codes depend on your PerfectCue model and how buttons are programmed in the DSAN app.
+      Use the <strong>Learn</strong> tab to detect exact codes for your unit.
+    </p>
+
+    <hr>
+
+    <p class="section-title">Companion OSC API</p>
+    <div class="osc-path-box">
+      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/press</span>        <span class="cmt">— press and release (no args)</span></div>
+      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/down</span>         <span class="cmt">— press and hold</span></div>
+      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/up</span>           <span class="cmt">— release</span></div>
+      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/rotate-left</span>  <span class="cmt">— encoder rotate left</span></div>
+      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/rotate-right</span> <span class="cmt">— encoder rotate right</span></div>
+      <div>&nbsp;</div>
+      <div><span class="cmt">Example — trigger Page 1, Row 0, Column 2:</span></div>
+      <div><span class="path">/location/1/0/2/press</span></div>
+      <div>&nbsp;</div>
+      <div><span class="cmt">Row and column are 0-based. On a standard 8×4 grid:</span></div>
+      <div><span class="cmt">  columns 0–7, rows 0–3</span></div>
+    </div>
+    <p class="text-muted" style="margin-top:10px;">
+      Enable the OSC listener in Companion under <strong>Settings → Remote Control → OSC</strong>.
+      Default port is <code>12321</code>.
+    </p>
+
+    <hr>
+
+    <p class="section-title">VirtualBox USB Passthrough Checklist</p>
+    <div class="card">
+      <ol style="padding-left:20px; line-height:2.2; font-size:0.83rem; color:var(--text);">
+        <li>Install <strong>VirtualBox Extension Pack</strong> (same version as VirtualBox)</li>
+        <li>Add your Linux user to the <code>vboxusers</code> group:<br>
+            <code>sudo usermod -aG vboxusers $USER</code> then log out/in</li>
+        <li>In VM Settings → USB: enable <strong>USB 2.0 (EHCI)</strong> or USB 3.0 controller</li>
+        <li>Add a USB filter: Vendor ID + Product ID only (find with <code>lsusb</code> on host)</li>
+        <li>Plug in the PerfectCue receiver <em>after</em> the VM is running — it will be captured automatically</li>
+        <li>Inside the VM, confirm it appears: <code>python3 perfectcue_bridge.py --list-devices</code></li>
+        <li>Add the bridge user to the <code>input</code> group:<br>
+            <code>sudo usermod -aG input bridge</code></li>
+      </ol>
+    </div>
+
+    <hr>
+
+    <p class="section-title">Quick Install</p>
+    <div class="osc-path-box">
+      <div><span class="cmt"># Clone / copy files to VM</span></div>
+      <div>sudo cp -r perfectcue-bridge/ /opt/perfectcue-bridge/</div>
+      <div>&nbsp;</div>
+      <div><span class="cmt"># Run installer</span></div>
+      <div>cd /opt/perfectcue-bridge &amp;&amp; sudo bash install.sh</div>
+      <div>&nbsp;</div>
+      <div><span class="cmt"># Check status</span></div>
+      <div>sudo systemctl status perfectcue-bridge</div>
+      <div>sudo systemctl status perfectcue-web</div>
+      <div>&nbsp;</div>
+      <div><span class="cmt"># Web UI available at:</span></div>
+      <div>http://&lt;vm-ip&gt;:8080</div>
+    </div>
+
+  </div><!-- /tab-reference -->
+
+</div><!-- /shell -->
+
+<!-- ══ TOAST ═══════════════════════════════════════════════════════════ -->
+<div id="toast"></div>
+
+<!-- ══ SCRIPT ══════════════════════════════════════════════════════════ -->
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+let config = {
+  settings: {
+    companion_ip: "127.0.0.1",
+    companion_port: 12321,
+    device_name_filter: "DSAN",
+    osc_press_delay_ms: 50,
+    log_level: "INFO"
+  },
+  mappings: {}
+};
+
+let logLines = [];
+let logCount = 0;
+let learnActive = false;
+let learnedKey = null;
+let statusPollTimer = null;
+let logPollTimer = null;
+
+// ── Init ───────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadConfig();
+  renderMappings();
+  startStatusPoll();
+  startLogPoll();
+  initFirePanel();
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+});
+
+// ── Config I/O ─────────────────────────────────────────────────────────
+function loadConfig() {
+  fetch('/config.json?_=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+      config = data;
+      document.getElementById('cfg-ip').value       = config.settings.companion_ip;
+      document.getElementById('cfg-port').value     = config.settings.companion_port;
+      document.getElementById('cfg-filter').value   = config.settings.device_name_filter;
+      document.getElementById('cfg-delay').value    = config.settings.osc_press_delay_ms;
+      document.getElementById('cfg-loglevel').value = config.settings.log_level;
+      renderMappings();
+      toast('Config loaded', 'ok');
+    })
+    .catch(() => {
+      renderMappings();
+      toast('Could not load config from server — using defaults', 'err');
+    });
+}
+
+/**
+ * Read settings fields from the Config tab form into config.settings.
+ * Always call this before posting to ensure settings are current.
+ */
+function _syncSettingsFromForm() {
+  config.settings.companion_ip       = document.getElementById('cfg-ip').value.trim();
+  config.settings.companion_port     = parseInt(document.getElementById('cfg-port').value) || 12321;
+  config.settings.device_name_filter = document.getElementById('cfg-filter').value.trim();
+  config.settings.osc_press_delay_ms = parseInt(document.getElementById('cfg-delay').value) || 50;
+  config.settings.log_level          = document.getElementById('cfg-loglevel').value.trim().toUpperCase() || 'INFO';
+}
+
+/**
+ * Read all mapping rows from the table into config.mappings.
+ * Always call this before posting to ensure mappings are current.
+ */
+function _syncMappingsFromTable() {
+  const rows = document.querySelectorAll('#map-tbody tr');
+  const newMappings = {};
+  rows.forEach(tr => {
+    const key    = tr.querySelector('.key-chip').textContent.trim();
+    const label  = tr.querySelector('.col-label').value.trim();
+    const page   = parseInt(tr.querySelector('.col-page').value)   || 1;
+    const row    = parseInt(tr.querySelector('.col-row').value)     || 0;
+    const column = parseInt(tr.querySelector('.col-column').value)  || 0;
+    const action = tr.querySelector('.col-action').value            || 'press';
+    if (key) newMappings[key] = { label, page, row, column, action };
+  });
+  config.mappings = newMappings;
+}
+
+/**
+ * Post the current in-memory config object to the server.
+ * Always call _syncSettingsFromForm() and _syncMappingsFromTable() first.
+ */
+function _postConfig(successMsg) {
+  return fetch('/config.json', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config, null, 2)
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        toast(successMsg, 'ok');
+      } else {
+        toast('Server error: ' + (res.error || 'unknown'), 'err');
+      }
+    })
+    .catch(err => toast('Save failed — is the web server running? ' + err, 'err'));
+}
+
+function saveConfig() {
+  _syncSettingsFromForm();
+  _syncMappingsFromTable();   // keep mappings in sync too
+  _postConfig('Config saved to /opt/perfectcue-bridge/config.json');
+}
+
+function saveMappings() {
+  _syncMappingsFromTable();
+  _syncSettingsFromForm();    // keep settings in sync too
+  _postConfig('Mappings saved to config.json');
+}
+
+// ── Mappings ───────────────────────────────────────────────────────────
+function renderMappings() {
+  const tbody = document.getElementById('map-tbody');
+  tbody.innerHTML = '';
+  Object.entries(config.mappings).forEach(([key, m]) => {
+    addMappingRow(key, m.label, m.page, m.row ?? 0, m.column ?? 0, m.action ?? 'press');
+  });
+}
+
+function addMappingRow(key='', label='', page=1, row=0, column=0, action='press') {
+  const tbody = document.getElementById('map-tbody');
+  const tr = document.createElement('tr');
+  const oscPreview = `/location/${page}/${row}/${column}/${action}`;
+  tr.innerHTML = `
+    <td><span class="key-chip" data-key="${escHtml(key)}">${escHtml(key)}</span></td>
+    <td><input type="text"   class="col-label"  value="${escHtml(label)}"  placeholder="Label"></td>
+    <td><input type="number" class="col-page"   value="${page}"   min="1" style="width:56px"></td>
+    <td><input type="number" class="col-row"    value="${row}"    min="0" style="width:56px"></td>
+    <td><input type="number" class="col-column" value="${column}" min="0" style="width:56px"></td>
+    <td>
+      <select class="col-action" style="background:var(--bg);border:1px solid var(--border-hi);color:var(--text);border-radius:var(--radius);padding:5px 6px;font-family:var(--mono);font-size:0.78rem;">
+        <option value="press"        ${action==='press'        ?'selected':''}>press</option>
+        <option value="down"         ${action==='down'         ?'selected':''}>down</option>
+        <option value="up"           ${action==='up'           ?'selected':''}>up</option>
+        <option value="rotate-left"  ${action==='rotate-left'  ?'selected':''}>rotate-left</option>
+        <option value="rotate-right" ${action==='rotate-right' ?'selected':''}>rotate-right</option>
+      </select>
+    </td>
+    <td><span class="osc-preview">${escHtml(oscPreview)}</span></td>
+    <td><button class="btn btn-test btn-icon" onclick="testRow(this)">▶ Test</button></td>
+    <td><button class="btn btn-secondary btn-icon" style="font-size:0.7rem;white-space:nowrap;" onclick="relearnRow(this)" title="Press a clicker button to update this key code">⟳ Re-learn</button></td>
+    <td><button class="btn btn-danger btn-icon" onclick="removeRow(this)">✕</button></td>
+  `;
+  const updatePreview = () => {
+    const p = tr.querySelector('.col-page').value;
+    const r = tr.querySelector('.col-row').value;
+    const c = tr.querySelector('.col-column').value;
+    const a = tr.querySelector('.col-action').value;
+    tr.querySelector('.osc-preview').textContent = `/location/${p}/${r}/${c}/${a}`;
+  };
+  tr.querySelector('.col-page').addEventListener('input', updatePreview);
+  tr.querySelector('.col-row').addEventListener('input', updatePreview);
+  tr.querySelector('.col-column').addEventListener('input', updatePreview);
+  tr.querySelector('.col-action').addEventListener('change', updatePreview);
+  tbody.appendChild(tr);
+}
+
+function removeRow(btn) {
+  btn.closest('tr').remove();
+}
+
+function addMapping() {
+  const key = prompt('evdev key name (e.g. KEY_RIGHT):');
+  if (!key) return;
+  addMappingRow(key.trim().toUpperCase(), '', 1, 0, 0, 'press');
+}
+
+// ── Learn mode ─────────────────────────────────────────────────────────
+// relearnTargetChip: the .key-chip span being re-learned from the Mappings tab.
+// When set, the next captured key updates that chip instead of the learn form.
+let relearnTargetChip = null;
+
+function toggleLearn() {
+  learnActive = !learnActive;
+  _applyLearnState();
+  if (learnActive) {
+    // Seed lastLearnKey so we don't fire on a stale status entry
+    lastLearnKey = document.getElementById('key-code').textContent || null;
+  }
+}
+
+function _applyLearnState() {
+  const btn     = document.getElementById('learn-toggle');
+  const instr   = document.getElementById('learn-instr');
+  const display = document.getElementById('key-display');
+
+  if (learnActive) {
+    btn.textContent = '■ Stop Listening';
+    btn.style.color = 'var(--red)';
+    instr.textContent = 'Listening… press ONE button on the PerfectCue.';
+    display.style.borderColor = 'var(--accent)';
+    document.getElementById('key-name').textContent = '…';
+    document.getElementById('key-code').textContent = 'listening';
+  } else {
+    btn.textContent = '▶ Start Listening';
+    btn.style.color = '';
+    display.style.borderColor = '';
+    if (!learnedKey) {
+      // Only reset instructions if nothing was caught
+      instr.textContent = 'Click Start Listening, then press a button on the PerfectCue to detect its key code.';
+      document.getElementById('key-name').textContent = '—';
+      document.getElementById('key-code').textContent = 'waiting';
+    }
+    relearnTargetChip = null;
+  }
+}
+
+// Called by pollStatus when a new key arrives and learn mode is active
+function _learnGotKey(keyName) {
+  // Single-shot: stop listening immediately
+  learnActive = false;
+  _applyLearnState();
+
+  if (relearnTargetChip) {
+    // Re-learn mode: update the chip in the Mappings row directly
+    const oldKey = relearnTargetChip.dataset.key;
+    relearnTargetChip.dataset.key = keyName;
+    relearnTargetChip.textContent = keyName;
+    relearnTargetChip.classList.add('flash-chip');
+    setTimeout(() => relearnTargetChip.classList.remove('flash-chip'), 800);
+    toast(`Re-learned: ${oldKey} → ${keyName}`, 'ok');
+    logEvent(`[RELEARN] ${oldKey} → ${keyName}`);
+    relearnTargetChip = null;
+    // Switch back to Mappings tab
+    document.querySelector('[data-tab="mappings"]').click();
+  } else {
+    // Normal learn mode: show the assign form
+    flashKey(keyName);
+  }
+}
+
+function flashKey(keyName) {
+  learnedKey = keyName;
+  const display = document.getElementById('key-display');
+  const nameEl  = document.getElementById('key-name');
+  const codeEl  = document.getElementById('key-code');
+
+  nameEl.textContent = keyName.replace('KEY_', '');
+  codeEl.textContent = keyName;
+  display.classList.add('flash');
+  setTimeout(() => display.classList.remove('flash'), 600);
+
+  document.getElementById('learn-assign').classList.add('visible');
+  document.getElementById('la-label').focus();
+  document.getElementById('learn-instr').textContent =
+    `Key detected: ${keyName} — fill in the assignment below, then click Assign.`;
+
+  logEvent(`[LEARN] Detected: ${keyName}`);
+}
+
+function assignLearnedKey() {
+  if (!learnedKey) return;
+  const label  = document.getElementById('la-label').value.trim() || learnedKey;
+  const page   = parseInt(document.getElementById('la-page').value)   || 1;
+  const row    = parseInt(document.getElementById('la-row').value)     ?? 0;
+  const column = parseInt(document.getElementById('la-column').value)  ?? 0;
+  const action = document.getElementById('la-action').value            || 'press';
+
+  config.mappings[learnedKey] = { label, page, row, column, action };
+  renderMappings();
+  _syncMappingsFromTable();
+  _syncSettingsFromForm();
+  _postConfig(`Key ${learnedKey} mapped and saved`);
+
+  const oscAddr = `/location/${page}/${row}/${column}/${action}`;
+  logEvent(`[LEARN] Assigned ${learnedKey} → ${oscAddr}`);
+
+  // Reset form ready for next use
+  learnedKey = null;
+  document.getElementById('learn-assign').classList.remove('visible');
+  document.getElementById('la-label').value = '';
+  document.getElementById('key-name').textContent = '—';
+  document.getElementById('key-code').textContent = 'waiting';
+  document.getElementById('learn-instr').textContent =
+    'Click Start Listening, then press a button on the PerfectCue to detect its key code.';
+}
+
+function skipLearnedKey() {
+  learnedKey = null;
+  document.getElementById('learn-assign').classList.remove('visible');
+  document.getElementById('key-name').textContent = '—';
+  document.getElementById('key-code').textContent = 'waiting';
+  document.getElementById('learn-instr').textContent =
+    'Click Start Listening, then press a button on the PerfectCue to detect its key code.';
+}
+
+// ── Re-learn from Mappings tab ──────────────────────────────────────────
+function relearnRow(btn) {
+  const tr   = btn.closest('tr');
+  const chip = tr.querySelector('.key-chip');
+
+  // Store the target chip so _learnGotKey knows where to write
+  relearnTargetChip = chip;
+
+  // Activate learn mode (single-shot)
+  learnActive = true;
+  lastLearnKey = chip.dataset.key; // ignore the current key if it fires again
+  _applyLearnState();
+
+  // Switch to Learn tab and tell the user what's happening
+  document.querySelector('[data-tab="learn"]').click();
+  document.getElementById('learn-instr').textContent =
+    `Re-learning "${chip.dataset.key}" — press the new clicker button now.`;
+  document.getElementById('key-name').textContent = '…';
+  document.getElementById('key-code').textContent = 'listening';
+}
+
+// ── Status polling + keypress stream ───────────────────────────────────
+let lastStatusKey = null;
+let lastStatusOsc = null;
+
+function startStatusPoll() {
+  pollStatus();
+  statusPollTimer = setInterval(pollStatus, 600);
+}
+
+function pollStatus() {
+  fetch('/status.json?_=' + Date.now())
+    .then(r => r.json())
+    .then(s => {
+      // Header badge
+      const dot   = document.getElementById('status-dot');
+      const label = document.getElementById('status-label');
+      dot.className = 'status-dot ' + (s.state || 'stopped');
+      label.textContent = s.state || 'unknown';
+
+      // New key event — drives both keypress stream and learn detection
+      if (s.last_key && s.last_key !== lastStatusKey) {
+        lastStatusKey = s.last_key;
+        lastStatusOsc = s.last_osc || '';
+        appendKeypress(s.last_key, s.last_osc || '');
+        document.getElementById('log-last-key').textContent = 'last key: ' + s.last_key;
+
+        // Feed learn mode if active — single-shot, stops itself
+        if (learnActive && s.last_key !== lastLearnKey) {
+          _learnGotKey(s.last_key);
+        }
+      }
+    })
+    .catch(() => {
+      document.getElementById('status-dot').className = 'status-dot stopped';
+      document.getElementById('status-label').textContent = 'offline';
+    });
+}
+
+function appendKeypress(key, osc) {
+  const out = document.getElementById('keypress-output');
+  // Clear placeholder text on first entry
+  if (out.querySelector('span[style]')) out.innerHTML = '';
+
+  const ts  = new Date().toLocaleTimeString('en-GB', { hour12: false });
+  const div = document.createElement('div');
+  div.className = 'kp-row';
+
+  const isMapped = osc && osc !== '(unmapped)';
+  div.innerHTML =
+    `<span class="kp-time">${ts}</span>` +
+    `<span class="kp-key">${escHtml(key)}</span>` +
+    `<span class="kp-arrow">→</span>` +
+    (isMapped
+      ? `<span class="kp-osc">${escHtml(osc)}</span>`
+      : `<span class="kp-unmapped">(unmapped)</span>`);
+
+  out.appendChild(div);
+  out.scrollTop = out.scrollHeight;
+}
+
+function clearKeypress() {
+  const out = document.getElementById('keypress-output');
+  out.innerHTML = '<span style="color:var(--muted);">Cleared — waiting for key events...</span>';
+  lastStatusKey = null;
+  document.getElementById('log-last-key').textContent = 'last key: —';
+}
+
+// ── Manual OSC fire ─────────────────────────────────────────────────────
+function initFirePanel() {
+  const updatePreview = () => {
+    const p = document.getElementById('fire-page').value   || 1;
+    const r = document.getElementById('fire-row').value    || 0;
+    const c = document.getElementById('fire-col').value    || 0;
+    const a = document.getElementById('fire-action').value || 'press';
+    document.getElementById('fire-preview').textContent = `/location/${p}/${r}/${c}/${a}`;
+  };
+  ['fire-page','fire-row','fire-col'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updatePreview));
+  document.getElementById('fire-action').addEventListener('change', updatePreview);
+}
+
+function fireOSC() {
+  const page   = parseInt(document.getElementById('fire-page').value)   || 1;
+  const row    = parseInt(document.getElementById('fire-row').value)    || 0;
+  const column = parseInt(document.getElementById('fire-col').value)    || 0;
+  const action = document.getElementById('fire-action').value           || 'press';
+  const label  = document.getElementById('fire-label').value.trim()     || 'Manual';
+  _sendOSC(page, row, column, action, label);
+}
+
+function testRow(btn) {
+  const tr     = btn.closest('tr');
+  const page   = parseInt(tr.querySelector('.col-page').value)   || 1;
+  const row    = parseInt(tr.querySelector('.col-row').value)    || 0;
+  const column = parseInt(tr.querySelector('.col-column').value) || 0;
+  const action = tr.querySelector('.col-action').value           || 'press';
+  const label  = tr.querySelector('.col-label').value.trim()     || 'Test';
+
+  // Flash the button green briefly
+  btn.classList.add('fired');
+  btn.textContent = '✓';
+  setTimeout(() => { btn.classList.remove('fired'); btn.textContent = '▶ Test'; }, 1200);
+
+  _sendOSC(page, row, column, action, label);
+}
+
+function _sendOSC(page, row, column, action, label) {
+  const addr = `/location/${page}/${row}/${column}/${action}`;
+  fetch('/osc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page, row, column, action })
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        const msg = `[TEST] ${label} → ${res.address}  (→ ${res.target})`;
+        logEvent(msg, 'log-test');
+        appendKeypress(`[TEST] ${label}`, res.address);
+        toast(`Sent: ${res.address}`, 'ok');
+      } else {
+        toast('OSC error: ' + (res.error || 'unknown'), 'err');
+      }
+    })
+    .catch(err => toast('Could not reach web server: ' + err, 'err'));
+}
+
+// ── Log polling ────────────────────────────────────────────────────────
+function startLogPoll() {
+  logPollTimer = setInterval(pollLog, 1500);
+}
+
+function pollLog() {
+  fetch('/bridge.log?_=' + Date.now())
+    .then(r => r.text())
+    .then(text => {
+      const lines = text.trim().split('\n').filter(Boolean);
+      const out   = document.getElementById('log-output');
+      if (lines.length === logCount) return;
+      logCount = lines.length;
+      out.innerHTML = lines.map(formatLogLine).join('\n');
+      document.getElementById('log-count').textContent = logCount + ' events';
+      if (document.getElementById('log-autoscroll').checked) {
+        out.scrollTop = out.scrollHeight;
+      }
+    })
+    .catch(() => {});
+}
+
+function formatLogLine(line) {
+  const timeMatch = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),?\d*\s+/);
+  let rest = line;
+  let timePart = '';
+  if (timeMatch) { timePart = timeMatch[1]; rest = line.slice(timeMatch[0].length); }
+
+  let cls = 'log-info';
+  if (rest.includes('ERROR'))       cls = 'log-error';
+  else if (rest.includes('[TEST]')) cls = 'log-test';
+  else if (rest.includes('/location/')) cls = 'log-osc';
+  else if (rest.includes('KEY_'))   cls = 'log-event';
+
+  return `<span class="log-time">${escHtml(timePart)}</span><span class="${cls}">${escHtml(rest)}</span>`;
+}
+
+function logEvent(msg, cls = 'log-event') {
+  const out = document.getElementById('log-output');
+  const ts  = new Date().toLocaleTimeString('en-GB', { hour12: false });
+  out.innerHTML += `\n<span class="log-time">${ts}</span><span class="${cls}">${escHtml(msg)}</span>`;
+  if (document.getElementById('log-autoscroll').checked) {
+    out.scrollTop = out.scrollHeight;
+  }
+}
+
+function clearLog() {
+  document.getElementById('log-output').innerHTML = '';
+  logCount = 0;
+  document.getElementById('log-count').textContent = '0 events';
+}
+
+// ── Service control ────────────────────────────────────────────────────
+function serviceCmd(cmd) {
+  const labels = { start: 'Starting', stop: 'Stopping', restart: 'Restarting' };
+  toast(`${labels[cmd] || cmd} bridge service...`, 'ok');
+
+  // Grey out all three buttons while the command runs
+  document.querySelectorAll('.service-btn').forEach(b => {
+    b.disabled = true;
+    b.style.opacity = '0.5';
+  });
+
+  fetch('/service', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cmd })
+  })
+    .then(r => r.json())
+    .then(res => {
+      const state = res.state || 'unknown';
+      if (res.ok) {
+        toast(`Bridge ${cmd} — service is ${state}`, 'ok');
+      } else {
+        const detail = res.stderr || res.error || 'unknown error';
+        toast(`Command failed: ${detail}`, 'err');
+      }
+      // Update status badge immediately without waiting for next poll
+      const dot   = document.getElementById('status-dot');
+      const label = document.getElementById('status-label');
+      dot.className   = 'status-dot ' + (state === 'active' ? 'running' : state === 'inactive' ? 'stopped' : 'error');
+      label.textContent = state;
+    })
+    .catch(err => toast('Could not reach web server: ' + err, 'err'))
+    .finally(() => {
+      document.querySelectorAll('.service-btn').forEach(b => {
+        b.disabled = false;
+        b.style.opacity = '';
+      });
+    });
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

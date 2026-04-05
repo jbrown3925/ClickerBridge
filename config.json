@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "companion_ip": "127.0.0.1",
+    "companion_port": 12321,
+    "device_name_filter": "DSAN",
+    "osc_press_delay_ms": 50,
+    "log_level": "INFO"
+  },
+  "mappings": {}
+}
