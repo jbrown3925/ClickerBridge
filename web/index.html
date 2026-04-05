@@ -835,10 +835,25 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
       <div class="field-row">
         <div>
           <div class="field-label">companion_port</div>
-          <div class="field-hint">OSC listener port configured in Companion</div>
+          <div class="field-hint">OSC listener port (default 12321)</div>
         </div>
         <input type="number" id="cfg-port" value="12321" min="1024" max="65535">
       </div>
+      <div class="field-row">
+        <div>
+          <div class="field-label">companion_http_port</div>
+          <div class="field-hint">HTTP API port for variable polling (default 8888)</div>
+        </div>
+        <input type="number" id="cfg-http-port" value="8888" min="1024" max="65535">
+      </div>
+      <div class="field-row">
+        <div>
+          <div class="field-label">Connection test</div>
+          <div class="field-hint">Check HTTP API reachability and variable format</div>
+        </div>
+        <button class="btn btn-secondary" onclick="testCompanionConnection()">Test Connection</button>
+      </div>
+      <div id="companion-diag-result" style="display:none; margin-top:8px; padding:10px 12px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); font-family:var(--mono); font-size:0.72rem; color:var(--text); line-height:1.8; white-space:pre-wrap; word-break:break-all;"></div>
     </div>
 
     <p class="section-title">Device</p>
@@ -1161,39 +1176,84 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 
     <hr>
 
-    <p class="section-title">Companion OSC API</p>
-    <div class="osc-path-box">
-      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/press</span>        <span class="cmt">— press and release (no args)</span></div>
-      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/down</span>         <span class="cmt">— press and hold</span></div>
-      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/up</span>           <span class="cmt">— release</span></div>
-      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/rotate-left</span>  <span class="cmt">— encoder rotate left</span></div>
-      <div><span class="path">/location/&lt;page&gt;/&lt;row&gt;/&lt;column&gt;/rotate-right</span> <span class="cmt">— encoder rotate right</span></div>
-      <div>&nbsp;</div>
-      <div><span class="cmt">Example — trigger Page 1, Row 0, Column 2:</span></div>
-      <div><span class="path">/location/1/0/2/press</span></div>
-      <div>&nbsp;</div>
-      <div><span class="cmt">Row and column are 0-based. On a standard 8×4 grid:</span></div>
-      <div><span class="cmt">  columns 0–7, rows 0–3</span></div>
-    </div>
-    <p class="text-muted" style="margin-top:10px;">
-      Enable the OSC listener in Companion under <strong>Settings → Remote Control → OSC</strong>.
-      Default port is <code>12321</code>.
+    <p class="section-title">Companion HTTP API</p>
+    <p class="text-muted" style="margin-bottom:12px; font-size:0.78rem;">
+      HTTP requests go to the same IP and port Companion is running on (default <code>8888</code>).
+      <code>POST</code> modifies, <code>GET</code> retrieves.
     </p>
+
+    <p class="section-title" style="font-size:0.6rem;">Button Control</p>
+    <div class="osc-path-box">
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/press</span>                      <span class="cmt">— press and release</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/down</span>                       <span class="cmt">— press and hold</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/up</span>                         <span class="cmt">— release</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/rotate-left</span>             <span class="cmt">— encoder left</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/rotate-right</span>            <span class="cmt">— encoder right</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/step?step=&lt;n&gt;</span>         <span class="cmt">— set encoder step</span></div>
+    </div>
+
+    <p class="section-title" style="font-size:0.6rem; margin-top:14px;">Button Style</p>
+    <div class="osc-path-box">
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/style?bgcolor=&lt;HEX&gt;</span>  <span class="cmt">— background colour</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/style?color=&lt;HEX&gt;</span>   <span class="cmt">— text colour</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/style?text=&lt;text&gt;</span>   <span class="cmt">— button label</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/location/&lt;page&gt;/&lt;row&gt;/&lt;col&gt;/style?size=&lt;size&gt;</span>   <span class="cmt">— text size</span></div>
+      <div><span class="cmt">  Or POST JSON body: { "text": "LIVE", "bgcolor": "#ff0000", "color": "#ffffff", "size": 28 }</span></div>
+    </div>
+
+    <p class="section-title" style="font-size:0.6rem; margin-top:14px;">Variables</p>
+    <div class="osc-path-box">
+      <div><span class="arg">GET </span> <span class="path">/api/variable/&lt;connection_label&gt;/&lt;name&gt;/value</span>  <span class="cmt">— read module variable</span></div>
+      <div><span class="arg">GET </span> <span class="path">/api/custom-variable/&lt;name&gt;/value</span>               <span class="cmt">— read custom variable</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/custom-variable/&lt;name&gt;/value?value=&lt;v&gt;</span>    <span class="cmt">— set custom variable (query)</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/custom-variable/&lt;name&gt;/value</span>              <span class="cmt">— set custom variable (body)</span></div>
+    </div>
+
+    <p class="section-title" style="font-size:0.6rem; margin-top:14px;">Surfaces</p>
+    <div class="osc-path-box">
+      <div><span class="arg">POST</span> <span class="path">/api/surfaces/rescan</span>  <span class="cmt">— rescan for USB surfaces</span></div>
+    </div>
+
+    <p class="section-title" style="font-size:0.6rem; margin-top:14px;">Examples</p>
+    <div class="osc-path-box">
+      <div><span class="cmt">Press Page 1, Row 0, Col 2:</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/location/1/0/2/press</span></div>
+      <div>&nbsp;</div>
+      <div><span class="cmt">Read connection status (used for GFX polling):</span></div>
+      <div><span class="arg">GET </span> <span class="path">/api/variable/internal/connection_myGFX_status/value</span></div>
+      <div>&nbsp;</div>
+      <div><span class="cmt">Read custom variable EnableGFX1:</span></div>
+      <div><span class="arg">GET </span> <span class="path">/api/custom-variable/EnableGFX1/value</span></div>
+      <div>&nbsp;</div>
+      <div><span class="cmt">Set custom variable "cue" to "intro":</span></div>
+      <div><span class="arg">POST</span> <span class="path">/api/custom-variable/cue/value?value=intro</span></div>
+      <div>&nbsp;</div>
+      <div><span class="cmt">Row and column are 0-based (columns 0–7, rows 0–3 on 8×4 grid)</span></div>
+    </div>
+
+    <p class="text-muted" style="margin-top:10px; font-size:0.78rem;">
+      OSC listener: Companion → <strong>Settings → Remote Control → OSC</strong>, default port <code>12321</code>.<br>
+      HTTP API port: same port Companion runs on, default <code>8888</code>.
+    </p>
+
+    <p class="section-title" style="font-size:0.6rem; margin-top:14px; color:var(--muted);">Deprecated (will be removed)</p>
+    <div class="osc-path-box" style="opacity:0.45;">
+      <div><span class="cmt">/press/bank/&lt;page&gt;/&lt;button&gt;</span></div>
+      <div><span class="cmt">/style/bank/&lt;page&gt;/&lt;button&gt;?bgcolor= / ?color= / ?text= / ?size=</span></div>
+      <div><span class="cmt">/set/custom-variable/&lt;name&gt;?value=</span></div>
+      <div><span class="cmt">/rescan</span></div>
+    </div>
 
     <hr>
 
-    <p class="section-title">VirtualBox USB Passthrough Checklist</p>
+    <p class="section-title">UTM USB Passthrough Checklist</p>
     <div class="card">
       <ol style="padding-left:20px; line-height:2.2; font-size:0.83rem; color:var(--text);">
-        <li>Install <strong>VirtualBox Extension Pack</strong> (same version as VirtualBox)</li>
-        <li>Add your Linux user to the <code>vboxusers</code> group:<br>
-            <code>sudo usermod -aG vboxusers $USER</code> then log out/in</li>
-        <li>In VM Settings → USB: enable <strong>USB 2.0 (EHCI)</strong> or USB 3.0 controller</li>
-        <li>Add a USB filter: Vendor ID + Product ID only (find with <code>lsusb</code> on host)</li>
-        <li>Plug in the PerfectCue receiver <em>after</em> the VM is running — it will be captured automatically</li>
-        <li>Inside the VM, confirm it appears: <code>python3 perfectcue_bridge.py --list-devices</code></li>
-        <li>Add the bridge user to the <code>input</code> group:<br>
-            <code>sudo usermod -aG input bridge</code></li>
+        <li>VM must use the <strong>QEMU backend</strong> — Apple Virtualization does not support USB passthrough</li>
+        <li>VM Settings → Input: enable <strong>USB Sharing</strong>, set USB version to <strong>USB 3.0</strong></li>
+        <li>Start the VM, plug in the PerfectCue receiver, click the <strong>USB icon</strong> in the UTM toolbar</li>
+        <li>Inside the VM, confirm it appears: <code>lsusb</code></li>
+        <li>Check bridge user permissions: <code>id bridge</code> — must include group <code>input</code></li>
       </ol>
     </div>
 
@@ -1229,6 +1289,7 @@ let config = {
   settings: {
     companion_ip: "127.0.0.1",
     companion_port: 12321,
+    companion_http_port: 8888,
     device_name_filter: "DSAN",
     osc_press_delay_ms: 50,
     log_level: "INFO"
@@ -1273,7 +1334,8 @@ function loadConfig() {
     .then(data => {
       config = data;
       document.getElementById('cfg-ip').value       = config.settings.companion_ip;
-      document.getElementById('cfg-port').value     = config.settings.companion_port;
+      document.getElementById('cfg-port').value      = config.settings.companion_port;
+      document.getElementById('cfg-http-port').value = config.settings.companion_http_port || 8888;
       document.getElementById('cfg-filter').value   = config.settings.device_name_filter;
       document.getElementById('cfg-delay').value    = config.settings.osc_press_delay_ms;
       document.getElementById('cfg-loglevel').value = config.settings.log_level;
@@ -1296,7 +1358,8 @@ function loadConfig() {
  */
 function _syncSettingsFromForm() {
   config.settings.companion_ip       = document.getElementById('cfg-ip').value.trim();
-  config.settings.companion_port     = parseInt(document.getElementById('cfg-port').value) || 12321;
+  config.settings.companion_port      = parseInt(document.getElementById('cfg-port').value) || 12321;
+  config.settings.companion_http_port = parseInt(document.getElementById('cfg-http-port').value) || 8888;
   config.settings.device_name_filter = document.getElementById('cfg-filter').value.trim();
   config.settings.osc_press_delay_ms = parseInt(document.getElementById('cfg-delay').value) || 50;
   config.settings.log_level          = document.getElementById('cfg-loglevel').value.trim().toUpperCase() || 'INFO';
@@ -1714,7 +1777,7 @@ function startGfxVarPoll() {
 async function pollGfxVariables() {
   ensureGfxConfig();
   const ip   = config.settings.companion_ip  || '127.0.0.1';
-  const port = config.settings.companion_port || 8888;
+  const port = config.settings.companion_http_port || 8888;
 
   for (let i = 0; i < GFX_COUNT; i++) {
     const m = config.gfx_machines[i];
@@ -2060,6 +2123,40 @@ function serviceCmd(cmd) {
         b.style.opacity = '';
       });
     });
+}
+
+// ── Companion connection test ──────────────────────────────────────────
+function testCompanionConnection() {
+  const ip   = document.getElementById('cfg-ip').value.trim()       || config.settings.companion_ip;
+  const port = document.getElementById('cfg-http-port').value.trim() || config.settings.companion_http_port || 8888;
+  const out  = document.getElementById('companion-diag-result');
+  out.style.display = 'block';
+  out.textContent   = 'Testing...';
+
+  fetch(`/companion-diag?ip=${encodeURIComponent(ip)}&port=${encodeURIComponent(port)}`)
+    .then(r => r.json())
+    .then(d => {
+      let lines = [`Target: http://${ip}:${port}`, ''];
+      (d.diag || []).forEach(r => {
+        lines.push(`URL:    ${r.url}`);
+        if (r.error) {
+          lines.push(`ERROR:  ${r.error}`);
+        } else {
+          lines.push(`Status: ${r.status}`);
+          lines.push(`Body:   ${r.body}`);
+        }
+        lines.push('');
+      });
+      // Also test a known variable if possible
+      const testVar = 'connection_test_status';
+      const testUrl = `/companion-variable?ip=${encodeURIComponent(ip)}&port=${encodeURIComponent(port)}&ns=internal&variable=${encodeURIComponent(testVar)}`;
+      return fetch(testUrl).then(r => r.json()).then(v => {
+        lines.push(`Variable test: $(internal:${testVar})`);
+        lines.push(`Raw response:  ${JSON.stringify(v)}`);
+        out.textContent = lines.join('\n');
+      }).catch(() => { out.textContent = lines.join('\n'); });
+    })
+    .catch(e => { out.textContent = 'Proxy error: ' + e; });
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────

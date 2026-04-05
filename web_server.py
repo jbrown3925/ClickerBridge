@@ -97,7 +97,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._headers("text/plain; charset=utf-8")
                 self.wfile.write(b"(no log yet - bridge has not run)")
 
-        elif path == "/companion-variable":
+        elif path in ("/companion-variable", "/companion-diag"):
             # Proxy a Companion HTTP variable GET to avoid CORS issues.
             # Query params: ip, port, variable, ns (namespace: 'internal' or 'custom')
             # Companion API: GET http://<ip>:<port>/api/variable/<ns>/<varname>/value
@@ -107,26 +107,68 @@ class Handler(BaseHTTPRequestHandler):
             comp_ip  = qs.get("ip",       ["127.0.0.1"])[0]
             comp_port= qs.get("port",     ["8888"])[0]
             var_name = qs.get("variable", [""])[0]
-            ns       = qs.get("ns",       ["internal"])[0]  # 'internal' or 'custom'
+            ns       = qs.get("ns",       ["internal"])[0]
 
-            # Only allow safe namespaces
             if ns not in ("internal", "custom"):
                 ns = "internal"
+
+            # /companion-diag with no variable — test basic Companion reachability
+            if path == "/companion-diag" and not var_name:
+                results = []
+                test_urls = [
+                    f"http://{comp_ip}:{comp_port}/api/variable/internal/foo/value",
+                    f"http://{comp_ip}:{comp_port}/",
+                ]
+                for test_url in test_urls:
+                    try:
+                        with urllib.request.urlopen(test_url, timeout=2) as r:
+                            body = r.read().decode(errors="replace").strip()
+                            results.append({"url": test_url, "status": r.status, "body": body[:200]})
+                    except Exception as e:
+                        results.append({"url": test_url, "error": str(e)})
+                self._headers()
+                self.wfile.write(json.dumps({"diag": results, "ip": comp_ip, "port": comp_port}).encode())
+                return
 
             if not var_name:
                 self._headers(status=400)
                 self.wfile.write(json.dumps({"error": "missing variable param"}).encode())
                 return
 
-            url = f"http://{comp_ip}:{comp_port}/api/variable/{ns}/{quote(var_name)}/value"
+            # Correct Companion HTTP API paths:
+            #   Module/internal variable: GET /api/variable/<connection_label>/<name>/value
+            #   Custom variable:          GET /api/custom-variable/<name>/value
+            if ns == "custom":
+                url = f"http://{comp_ip}:{comp_port}/api/custom-variable/{quote(var_name)}/value"
+            else:
+                url = f"http://{comp_ip}:{comp_port}/api/variable/{ns}/{quote(var_name)}/value"
             try:
                 with urllib.request.urlopen(url, timeout=1.5) as r:
-                    body = r.read().decode(errors="replace").strip()
+                    raw  = r.read().decode(errors="replace").strip()
+                    # Companion wraps the value in JSON: {"value": "OK"}
+                    # Try to parse it, fall back to raw string
+                    try:
+                        parsed = json.loads(raw)
+                        value  = parsed.get("value", raw) if isinstance(parsed, dict) else raw
+                    except Exception:
+                        value = raw
                 self._headers()
-                self.wfile.write(json.dumps({"value": body, "variable": var_name, "ns": ns}).encode())
+                self.wfile.write(json.dumps({
+                    "value":    value,
+                    "raw":      raw,
+                    "variable": var_name,
+                    "ns":       ns,
+                    "url":      url,
+                }).encode())
             except Exception as e:
                 self._headers()
-                self.wfile.write(json.dumps({"value": "", "variable": var_name, "ns": ns, "error": str(e)}).encode())
+                self.wfile.write(json.dumps({
+                    "value":    "",
+                    "variable": var_name,
+                    "ns":       ns,
+                    "url":      url,
+                    "error":    str(e),
+                }).encode())
 
         else:
             self._headers(status=404)

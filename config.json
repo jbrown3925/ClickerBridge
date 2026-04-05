@@ -4,7 +4,8 @@
     "companion_port": 12321,
     "device_name_filter": "DSAN",
     "osc_press_delay_ms": 50,
-    "log_level": "INFO"
+    "log_level": "INFO",
+    "companion_http_port": 8888
   },
   "mappings": {},
   "gfx_machines": [
