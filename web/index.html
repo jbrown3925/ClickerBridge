@@ -442,7 +442,11 @@ input:focus {
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  transition: border-color .2s, box-shadow .2s;
+  transition: border-color 0.4s ease-out, box-shadow 0.4s ease-out;
+}
+.status-arrow-card.flash-back,
+.status-arrow-card.flash-fwd {
+  transition: none;  /* snap on instantly, fade out when class removed */
 }
 .status-arrow-card.flash-back {
   border-color: var(--red);
@@ -1537,9 +1541,17 @@ let arrowFlashTimer = { fwd: null, back: null };
 function flashArrow(direction) {
   const card = document.getElementById(direction === 'fwd' ? 'arrow-fwd' : 'arrow-back');
   const cls  = direction === 'fwd' ? 'flash-fwd' : 'flash-back';
+
+  // Force reflow so rapid presses each get a crisp new flash
+  card.classList.remove(cls);
+  void card.offsetWidth;  // trigger reflow
   card.classList.add(cls);
+
   clearTimeout(arrowFlashTimer[direction]);
-  arrowFlashTimer[direction] = setTimeout(() => card.classList.remove(cls), 600);
+  arrowFlashTimer[direction] = setTimeout(
+    () => card.classList.remove(cls),
+    ARROW_FLASH_MS
+  );
 }
 
 /**
@@ -1574,9 +1586,27 @@ function renderGfxGrid() {
 let lastStatusKey = null;
 let lastStatusOsc = null;
 
+const POLL_RATE_NORMAL = 600;   // ms — background tabs
+const POLL_RATE_STATUS = 150;   // ms — Status tab active (catches fast presses)
+const ARROW_FLASH_MS   = 500;   // ms — flash duration per press
+
+let statusTabActive = false;
+
 function startStatusPoll() {
   pollStatus();
-  statusPollTimer = setInterval(pollStatus, 600);
+  statusPollTimer = setInterval(pollStatus, POLL_RATE_NORMAL);
+
+  // Switch to fast poll when Status tab is visible
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const isStatus = btn.dataset.tab === 'status';
+      if (isStatus === statusTabActive) return;
+      statusTabActive = isStatus;
+      clearInterval(statusPollTimer);
+      statusPollTimer = setInterval(pollStatus,
+        statusTabActive ? POLL_RATE_STATUS : POLL_RATE_NORMAL);
+    });
+  });
 }
 
 function pollStatus() {
