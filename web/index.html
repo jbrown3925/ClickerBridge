@@ -1542,9 +1542,9 @@ function flashArrow(direction) {
   const card = document.getElementById(direction === 'fwd' ? 'arrow-fwd' : 'arrow-back');
   const cls  = direction === 'fwd' ? 'flash-fwd' : 'flash-back';
 
-  // Force reflow so rapid presses each get a crisp new flash
+  // Force reflow so every press triggers a crisp distinct flash
   card.classList.remove(cls);
-  void card.offsetWidth;  // trigger reflow
+  void card.offsetWidth;
   card.classList.add(cls);
 
   clearTimeout(arrowFlashTimer[direction]);
