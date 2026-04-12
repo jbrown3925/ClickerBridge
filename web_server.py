@@ -12,6 +12,7 @@ Endpoints:
     POST /config.json   → write config (JSON body), restarts bridge service
     GET  /status.json   → bridge runtime state
     GET  /bridge.log    → last 300 lines of the rolling log
+    GET  /input-devices → JSON list of evdev input devices (path, name, has_keyboard)
     POST /osc           → send a test OSC message to Companion
                           body: {"page":1,"row":0,"column":0,"action":"press"}
     POST /service       → control the bridge systemd service
@@ -36,6 +37,49 @@ CONFIG  = BASE / "config.json"
 STATUS  = BASE / "status.json"
 LOG     = BASE / "bridge.log"
 LOG_TAIL = 300  # lines served to the browser
+
+
+def list_input_devices():
+    """
+    Return {"devices": [...], "error": null} for the web UI.
+    Each device: path, name, has_keyboard (bool or null if unknown), optional error.
+    """
+    try:
+        import evdev
+        from evdev import InputDevice, ecodes
+    except ImportError:
+        return {"devices": [], "error": "evdev is not installed"}
+
+    out = []
+    for p in evdev.list_devices():
+        try:
+            dev = InputDevice(p)
+            try:
+                caps = dev.capabilities()
+                has_kb = ecodes.EV_KEY in caps
+            except Exception:
+                has_kb = None
+            out.append({"path": dev.path, "name": dev.name, "has_keyboard": has_kb})
+            try:
+                dev.close()
+            except Exception:
+                pass
+        except OSError as e:
+            out.append({
+                "path": p,
+                "name": "",
+                "has_keyboard": None,
+                "error": str(e),
+            })
+        except Exception as e:
+            out.append({
+                "path": p,
+                "name": "",
+                "has_keyboard": None,
+                "error": str(e),
+            })
+    return {"devices": out, "error": None}
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -96,6 +140,11 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._headers("text/plain; charset=utf-8")
                 self.wfile.write(b"(no log yet - bridge has not run)")
+
+        elif path == "/input-devices":
+            payload = list_input_devices()
+            self._headers()
+            self.wfile.write(json.dumps(payload).encode())
 
         elif path in ("/companion-variable", "/companion-diag"):
             # Proxy a Companion HTTP variable GET to avoid CORS issues.

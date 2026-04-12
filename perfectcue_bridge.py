@@ -98,12 +98,6 @@ def find_device(name_filter: str) -> InputDevice | None:
     for dev in devices:
         if name_filter.lower() in dev.name.lower():
             return dev
-    # Fallback: return first keyboard-capable device if no name match
-    for dev in devices:
-        caps = dev.capabilities()
-        if ecodes.EV_KEY in caps:
-            if ecodes.KEY_RIGHT in caps[ecodes.EV_KEY] or ecodes.KEY_LEFT in caps[ecodes.EV_KEY]:
-                return dev
     return None
 
 
@@ -399,7 +393,7 @@ def main():
         settings = config["settings"]
         device = find_device(settings["device_name_filter"])
         if device is None:
-            print("[ERROR] No input device found. Check USB passthrough and --list-devices.")
+            print("[ERROR] No device matched device_name_filter. Check USB passthrough and --list-devices.")
             sys.exit(1)
         learn_mode(device, config_path, config)
     else:

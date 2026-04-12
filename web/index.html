@@ -128,9 +128,21 @@ header {
 /* ─── Tab bar ────────────────────────────────────────── */
 .tabs {
   display: flex;
+  align-items: flex-end;
   gap: 2px;
   margin-bottom: 32px;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.tabs-trailing {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  padding-bottom: 10px;
+}
+.tabs-trailing .btn-companion-ui {
+  padding: 8px 14px;
+  font-size: 0.72rem;
 }
 .tab-btn {
   background: none; border: none;
@@ -278,6 +290,33 @@ input:focus {
 }
 .map-table tr:last-child td { border-bottom: none; }
 .map-table tr:hover td { background: rgba(255,255,255,.02); }
+.map-table tr.input-device-row-active td {
+  background: rgba(58, 155, 232, 0.07);
+  box-shadow: inset 3px 0 0 var(--accent2);
+}
+.input-devices-scroll {
+  max-height: 280px;
+  overflow: auto;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.input-devices-name { font-weight: 600; word-break: break-word; }
+.input-devices-path {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+.input-devices-badge {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.input-devices-badge.yes { color: var(--green); }
+.input-devices-badge.no { color: var(--muted); }
 .key-chip {
   display: inline-block;
   background: var(--bg);
@@ -936,6 +975,9 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
     <button class="tab-btn" data-tab="status">Status</button>
     <button class="tab-btn" data-tab="log">Activity</button>
     <button class="tab-btn" data-tab="reference">Reference</button>
+    <div class="tabs-trailing">
+      <button type="button" class="btn btn-secondary btn-companion-ui" onclick="openCompanionWebUI()" title="Open Companion web interface on this host (port 8000)">Companion ↗</button>
+    </div>
   </nav>
 
   <!-- ══ TAB: CONFIG ═════════════════════════════════════════════════ -->
@@ -995,6 +1037,34 @@ hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
           <div class="field-hint">DEBUG | INFO | WARNING | ERROR</div>
         </div>
         <input type="text" id="cfg-loglevel" value="INFO">
+      </div>
+    </div>
+
+    <p class="section-title">Input devices</p>
+    <div class="card">
+      <div class="field-row" style="border-bottom: none; padding-top: 0;">
+        <div>
+          <div class="field-label">evdev scan</div>
+          <div class="field-hint">Devices visible to Linux (same list the bridge uses). Select sets <code style="font-family:var(--mono);font-size:0.78em;">device_name_filter</code> to this device’s name; save config to apply.</div>
+        </div>
+        <button type="button" class="btn btn-secondary" id="input-devices-refresh" onclick="refreshInputDevices()">Refresh</button>
+      </div>
+      <div id="input-devices-empty" class="text-muted" style="padding: 12px 0 4px;">Click Refresh to scan.</div>
+      <div id="input-devices-error" class="text-muted" style="display: none; padding: 12px 0; color: var(--red);"></div>
+      <div id="input-devices-wrap" style="display: none;">
+        <div class="input-devices-scroll">
+          <table class="map-table" id="input-devices-table" style="margin: 0;">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Path</th>
+                <th>Keys</th>
+                <th style="width: 1%; white-space: nowrap;"></th>
+              </tr>
+            </thead>
+            <tbody id="input-devices-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -1420,6 +1490,8 @@ let learnActive = false;
 let learnedKey = null;
 let statusPollTimer = null;
 let logPollTimer = null;
+let inputDevicesCache = null;
+let inputDevicesListError = null;
 
 // ── Init ───────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -1442,6 +1514,10 @@ window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
     });
   });
+
+  document.getElementById('cfg-filter').addEventListener('input', () => {
+    if (inputDevicesCache && inputDevicesCache.length) renderInputDevicesTable();
+  });
 });
 
 // ── Config I/O ─────────────────────────────────────────────────────────
@@ -1462,10 +1538,144 @@ function loadConfig() {
       renderGfxConfigForm();
       startGfxVarPoll();
       toast('Config loaded', 'ok');
+      refreshInputDevices();
     })
     .catch(() => {
       renderMappings();
       toast('Could not load config from server — using defaults', 'err');
+    });
+}
+
+function renderInputDevicesTable() {
+  const tbody = document.getElementById('input-devices-tbody');
+  const empty = document.getElementById('input-devices-empty');
+  const errEl = document.getElementById('input-devices-error');
+  const wrap = document.getElementById('input-devices-wrap');
+  tbody.innerHTML = '';
+
+  if (inputDevicesListError) {
+    empty.style.display = 'none';
+    wrap.style.display = 'none';
+    errEl.textContent = inputDevicesListError;
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  if (inputDevicesCache === null) {
+    wrap.style.display = 'none';
+    empty.style.display = 'block';
+    empty.textContent = 'Click Refresh to scan.';
+    return;
+  }
+  if (inputDevicesCache.length === 0) {
+    wrap.style.display = 'none';
+    empty.style.display = 'block';
+    empty.textContent = 'No input devices found.';
+    return;
+  }
+
+  empty.style.display = 'none';
+  wrap.style.display = 'block';
+
+  const filter = (document.getElementById('cfg-filter').value || '').trim().toLowerCase();
+
+  for (let i = 0; i < inputDevicesCache.length; i++) {
+    const d = inputDevicesCache[i];
+    const tr = document.createElement('tr');
+    if (filter && d.name && d.name.toLowerCase().includes(filter)) {
+      tr.classList.add('input-device-row-active');
+    }
+
+    const tdName = document.createElement('td');
+    tdName.className = 'input-devices-name';
+    if (d.name) {
+      tdName.textContent = d.name;
+    } else {
+      tdName.textContent = d.error ? '(could not open)' : '—';
+    }
+
+    const tdPath = document.createElement('td');
+    tdPath.className = 'input-devices-path';
+    tdPath.textContent = d.path || '';
+
+    const tdKeys = document.createElement('td');
+    const span = document.createElement('span');
+    span.className = 'input-devices-badge';
+    if (d.has_keyboard === true) {
+      span.classList.add('yes');
+      span.textContent = 'Yes';
+    } else if (d.has_keyboard === false) {
+      span.classList.add('no');
+      span.textContent = 'No';
+    } else {
+      span.textContent = '—';
+    }
+    tdKeys.appendChild(span);
+
+    const tdBtn = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-secondary btn-icon';
+    btn.textContent = 'Select';
+    btn.disabled = !d.name;
+    if (!d.name && d.error) btn.title = d.error;
+    const idx = i;
+    btn.addEventListener('click', () => selectInputDeviceAtIndex(idx));
+    tdBtn.appendChild(btn);
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdPath);
+    tr.appendChild(tdKeys);
+    tr.appendChild(tdBtn);
+    tbody.appendChild(tr);
+  }
+}
+
+function selectInputDeviceAtIndex(i) {
+  const d = inputDevicesCache[i];
+  if (!d || !d.name) return;
+  document.getElementById('cfg-filter').value = d.name;
+  config.settings.device_name_filter = d.name;
+  toast('device_name_filter updated — Save config.json to apply', 'ok');
+  renderInputDevicesTable();
+}
+
+function refreshInputDevices() {
+  const empty = document.getElementById('input-devices-empty');
+  const errEl = document.getElementById('input-devices-error');
+  const wrap = document.getElementById('input-devices-wrap');
+  const btn = document.getElementById('input-devices-refresh');
+  errEl.style.display = 'none';
+  wrap.style.display = 'none';
+  document.getElementById('input-devices-tbody').innerHTML = '';
+  empty.style.display = 'block';
+  empty.textContent = 'Scanning…';
+  inputDevicesListError = null;
+  if (btn) btn.disabled = true;
+
+  fetch('/input-devices?_=' + Date.now())
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
+    .then(data => {
+      if (data.error) {
+        inputDevicesCache = [];
+        inputDevicesListError = data.error;
+      } else {
+        inputDevicesCache = data.devices || [];
+        inputDevicesListError = null;
+      }
+      renderInputDevicesTable();
+    })
+    .catch(e => {
+      inputDevicesCache = null;
+      inputDevicesListError = e.message || String(e);
+      renderInputDevicesTable();
+    })
+    .finally(() => {
+      if (btn) btn.disabled = false;
     });
 }
 
@@ -2293,6 +2503,16 @@ function serviceCmd(cmd) {
 }
 
 // ── Companion connection test ──────────────────────────────────────────
+/** Companion browser UI uses the same host as this page (port 8000). */
+const COMPANION_WEB_UI_PORT = 8000;
+
+function openCompanionWebUI() {
+  const host = window.location.hostname || '127.0.0.1';
+  const hostPart = host.includes(':') ? `[${host}]` : host;
+  const url = `http://${hostPart}:${COMPANION_WEB_UI_PORT}/`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 function testCompanionConnection() {
   const ip   = document.getElementById('cfg-ip').value.trim()       || config.settings.companion_ip;
   const port = document.getElementById('cfg-http-port').value.trim() || config.settings.companion_http_port || 8888;
